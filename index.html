@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chamador de Pacientes · UPA</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg-0:#081619;
+    --bg-1:#0B2027;
+    --bg-2:#0F3B3D;
+    --card:#12343B;
+    --card-2:#163C42;
+    --line:rgba(242,247,245,0.10);
+    --ink:#F2F7F5;
+    --ink-dim:#9FB6B4;
+    --ink-dimmer:#6E8B89;
+    --amber:#F2A93B;
+    --amber-dim:#8A6321;
+    --teal:#2EC4B6;
+    --danger:#E1595A;
+    --radius:14px;
+  }
+  *{box-sizing:border-box;}
+  html,body{height:100%;}
+  body{
+    margin:0;
+    background:radial-gradient(120% 140% at 15% 0%, var(--bg-2) 0%, var(--bg-1) 45%, var(--bg-0) 100%);
+    color:var(--ink);
+    font-family:'Inter',system-ui,sans-serif;
+    min-height:100vh;
+    -webkit-font-smoothing:antialiased;
+  }
+  .mono{font-family:'IBM Plex Mono',monospace;}
+  .display-font{font-family:'Oswald',sans-serif; text-transform:uppercase; letter-spacing:0.02em;}
+  button{font-family:inherit; cursor:pointer;}
+  input{font-family:inherit;}
+  a{color:inherit;}
+
+  /* ---------- layout shells ---------- */
+  #app{min-height:100vh; display:flex; flex-direction:column;}
+  .hidden{display:none !important;}
+
+  /* ---------- MODE SELECT ---------- */
+  .select-wrap{
+    flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center;
+    padding:32px 20px; gap:40px; text-align:center;
+  }
+  .select-eyebrow{
+    color:var(--teal); font-family:'IBM Plex Mono',monospace; font-size:12px;
+    letter-spacing:0.28em; text-transform:uppercase;
+  }
+  .select-title{
+    font-family:'Oswald',sans-serif; font-weight:600; text-transform:uppercase;
+    font-size:clamp(28px,5vw,44px); letter-spacing:0.01em; margin:6px 0 0 0;
+  }
+  .select-cards{
+    display:flex; gap:20px; flex-wrap:wrap; justify-content:center; max-width:760px;
+  }
+  .select-card{
+    width:300px; background:var(--card); border:1px solid var(--line); border-radius:var(--radius);
+    padding:28px 24px; text-align:left; transition:transform .15s ease, border-color .15s ease, background .15s ease;
+    text-decoration:none; display:block;
+  }
+  .select-card:hover{transform:translateY(-3px); border-color:var(--teal); background:var(--card-2);}
+  .select-card .icon{font-size:28px; display:block; margin-bottom:14px;}
+  .select-card h3{font-family:'Oswald',sans-serif; text-transform:uppercase; font-size:19px; margin:0 0 8px 0; letter-spacing:0.02em;}
+  .select-card p{color:var(--ink-dim); font-size:14px; line-height:1.5; margin:0;}
+
+  /* ---------- RECEPTION ---------- */
+  .rec-wrap{flex:1; display:flex; flex-direction:column; padding:28px clamp(20px,4vw,56px); position:relative;}
+  .rec-header{display:flex; align-items:center; justify-content:space-between; margin-bottom:clamp(20px,4vh,48px);}
+  .brand{display:flex; align-items:center; gap:10px;}
+  .brand .dot{width:9px; height:9px; border-radius:50%; background:var(--teal); box-shadow:0 0 0 4px rgba(46,196,182,0.15);}
+  .brand span{font-family:'IBM Plex Mono',monospace; font-size:13px; letter-spacing:0.14em; color:var(--ink-dim); text-transform:uppercase;}
+  .rec-clock{font-family:'IBM Plex Mono',monospace; font-size:15px; color:var(--ink-dim);}
+
+  .rec-body{flex:1; display:grid; grid-template-columns:1.6fr 1fr; gap:clamp(20px,3vw,40px); min-height:0;}
+  @media (max-width:820px){ .rec-body{grid-template-columns:1fr;} }
+
+  .now-card{
+    background:linear-gradient(180deg, var(--card-2) 0%, var(--card) 100%);
+    border:1px solid var(--line); border-radius:20px;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    padding:clamp(24px,5vh,60px) 20px; text-align:center; position:relative; overflow:hidden;
+  }
+  .now-card::before{
+    content:""; position:absolute; inset:0;
+    background:radial-gradient(60% 60% at 50% 0%, rgba(242,169,59,0.10), transparent 70%);
+    pointer-events:none;
+  }
+  .now-eyebrow{
+    font-family:'IBM Plex Mono',monospace; font-size:13px; letter-spacing:0.3em; color:var(--amber);
+    text-transform:uppercase; margin-bottom:18px;
+  }
+  .now-sala{
+    font-family:'Oswald',sans-serif; font-weight:500; text-transform:uppercase;
+    font-size:clamp(18px,2.4vw,26px); color:var(--ink-dim); letter-spacing:0.1em; margin-bottom:6px;
+  }
+  .now-sala b{color:var(--teal); font-weight:600;}
+  .now-name{
+    font-family:'Oswald',sans-serif; font-weight:700; text-transform:uppercase;
+    font-size:clamp(34px,7vw,88px); line-height:1.02; letter-spacing:0.01em; color:var(--ink);
+    margin:10px 0 0 0; word-break:break-word;
+  }
+  .now-name .letter{
+    display:inline-block; opacity:0; transform:translateY(18px);
+    animation:letterIn .45s cubic-bezier(.2,.8,.2,1) forwards;
+  }
+  @keyframes letterIn{ to{opacity:1; transform:translateY(0);} }
+  .now-empty{color:var(--ink-dimmer); font-family:'Oswald',sans-serif; text-transform:uppercase; font-size:clamp(20px,3vw,30px); letter-spacing:0.05em;}
+  .now-time{margin-top:22px; font-family:'IBM Plex Mono',monospace; font-size:13px; color:var(--ink-dimmer);}
+
+  .hist-card{background:var(--card); border:1px solid var(--line); border-radius:20px; padding:22px; display:flex; flex-direction:column; min-height:0;}
+  .hist-title{font-family:'IBM Plex Mono',monospace; font-size:12px; letter-spacing:0.2em; color:var(--ink-dimmer); text-transform:uppercase; margin-bottom:14px;}
+  .hist-list{list-style:none; margin:0; padding:0; overflow-y:auto; flex:1; display:flex; flex-direction:column; gap:2px;}
+  .hist-item{display:flex; align-items:baseline; justify-content:space-between; gap:12px; padding:13px 4px; border-bottom:1px solid var(--line);}
+  .hist-item:last-child{border-bottom:none;}
+  .hist-name{font-weight:600; font-size:16px;}
+  .hist-meta{display:flex; align-items:baseline; gap:10px; flex-shrink:0;}
+  .hist-sala{font-family:'IBM Plex Mono',monospace; font-size:13px; color:var(--teal);}
+  .hist-time{font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--ink-dimmer);}
+  .hist-empty{color:var(--ink-dimmer); font-size:14px; padding:8px 4px;}
+
+  .rec-overlay{
+    position:absolute; inset:0; background:var(--bg-0); display:flex; flex-direction:column;
+    align-items:center; justify-content:center; gap:18px; text-align:center; padding:24px; z-index:10;
+  }
+  .rec-overlay p{color:var(--ink-dim); max-width:380px; font-size:14px; line-height:1.5; margin:0;}
+  .btn-activate{
+    background:var(--amber); color:#231402; border:none; border-radius:10px; padding:16px 30px;
+    font-family:'Oswald',sans-serif; text-transform:uppercase; letter-spacing:0.05em; font-weight:600; font-size:16px;
+  }
+  .btn-activate:hover{filter:brightness(1.08);}
+  .back-link-rec{position:absolute; top:20px; right:24px; font-size:12px; color:var(--ink-dimmer); font-family:'IBM Plex Mono',monospace; text-decoration:none;}
+
+  /* ---------- DOCTOR PANEL ---------- */
+  .doc-wrap{flex:1; display:flex; justify-content:center; padding:24px 16px 60px;}
+  .doc-col{width:100%; max-width:460px; display:flex; flex-direction:column; gap:18px;}
+  .doc-header{display:flex; align-items:center; justify-content:space-between; padding:6px 2px 8px;}
+  .doc-header a{font-size:12px; color:var(--ink-dimmer); font-family:'IBM Plex Mono',monospace; text-decoration:none;}
+  .doc-title{font-family:'Oswald',sans-serif; text-transform:uppercase; font-weight:600; font-size:22px; letter-spacing:0.02em; margin:0;}
+
+  .doc-card{background:var(--card); border:1px solid var(--line); border-radius:var(--radius); padding:22px;}
+  .field{margin-bottom:16px;}
+  .field:last-child{margin-bottom:0;}
+  .field label{display:block; font-size:12px; letter-spacing:0.1em; text-transform:uppercase; color:var(--ink-dimmer); margin-bottom:8px; font-family:'IBM Plex Mono',monospace;}
+  .field input{
+    width:100%; background:var(--bg-1); border:1px solid var(--line); border-radius:9px; color:var(--ink);
+    padding:13px 14px; font-size:16px; outline:none; transition:border-color .15s ease;
+  }
+  .field input:focus{border-color:var(--teal);}
+  .field.sala input{max-width:120px; text-align:center; font-family:'IBM Plex Mono',monospace; font-size:18px;}
+
+  .btn-call{
+    width:100%; background:var(--teal); color:#04211E; border:none; border-radius:10px;
+    padding:16px; font-family:'Oswald',sans-serif; text-transform:uppercase; letter-spacing:0.05em;
+    font-weight:600; font-size:17px; margin-top:6px; transition:filter .15s ease, transform .1s ease;
+  }
+  .btn-call:hover{filter:brightness(1.08);}
+  .btn-call:active{transform:scale(0.99);}
+  .btn-call:disabled{background:var(--card-2); color:var(--ink-dimmer); cursor:not-allowed;}
+
+  .toast{
+    font-size:13px; color:var(--teal); font-family:'IBM Plex Mono',monospace; text-align:center;
+    min-height:18px; opacity:0; transition:opacity .2s ease;
+  }
+  .toast.show{opacity:1;}
+  .toast.err{color:var(--danger);}
+
+  .mine-title{font-family:'IBM Plex Mono',monospace; font-size:12px; letter-spacing:0.16em; color:var(--ink-dimmer); text-transform:uppercase; margin:4px 2px 2px;}
+  .mine-list{list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:8px;}
+  .mine-item{
+    background:var(--card); border:1px solid var(--line); border-radius:10px; padding:12px 14px;
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
+  }
+  .mine-info .name{font-weight:600; font-size:14px;}
+  .mine-info .time{font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--ink-dimmer); margin-top:2px;}
+  .btn-recall{
+    background:transparent; border:1px solid var(--line); color:var(--ink-dim); border-radius:8px;
+    padding:8px 12px; font-size:12px; white-space:nowrap; flex-shrink:0;
+  }
+  .btn-recall:hover{border-color:var(--amber); color:var(--amber);}
+  .mine-empty{color:var(--ink-dimmer); font-size:13px; padding:4px 2px;}
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- ============ MODE SELECT ============ -->
+  <section id="view-select" class="select-wrap hidden">
+    <div>
+      <div class="select-eyebrow">UPA · Sistema de Chamada</div>
+      <h1 class="select-title">Chamador de Pacientes</h1>
+    </div>
+    <div class="select-cards">
+      <a class="select-card" href="#recepcao">
+        <span class="icon">📺</span>
+        <h3>Tela da Recepção</h3>
+        <p>Painel para exibir na TV da sala de espera. Anuncia por voz cada paciente chamado pelos médicos.</p>
+      </a>
+      <a class="select-card" href="#medico">
+        <span class="icon">🩺</span>
+        <h3>Painel do Médico</h3>
+        <p>Use na sala de atendimento para chamar o próximo paciente já triado.</p>
+      </a>
+    </div>
+  </section>
+
+  <!-- ============ RECEPTION ============ -->
+  <section id="view-recepcao" class="rec-wrap hidden">
+    <a href="#" class="back-link-rec">← trocar painel</a>
+    <div class="rec-header">
+      <div class="brand"><span class="dot"></span><span>UPA · Chamador de Pacientes</span></div>
+      <div class="rec-clock" id="rec-clock">--:--:--</div>
+    </div>
+    <div class="rec-body">
+      <div class="now-card">
+        <div class="now-eyebrow">Chamando agora</div>
+        <div id="now-content">
+          <div class="now-empty">Aguardando chamado…</div>
+        </div>
+        <div class="now-time" id="now-time"></div>
+      </div>
+      <div class="hist-card">
+        <div class="hist-title">Chamados anteriores</div>
+        <ul class="hist-list" id="hist-list">
+          <li class="hist-empty">Nenhum chamado ainda.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="rec-overlay" id="rec-overlay">
+      <div class="select-eyebrow">Tela da Recepção</div>
+      <h2 class="select-title" style="font-size:clamp(22px,4vw,32px);">Ativar chamador</h2>
+      <p>Toque no botão para ativar o som e a voz de chamada. Deixe esta tela aberta na TV da recepção.</p>
+      <button class="btn-activate" id="btn-activate">🔊 Ativar painel</button>
+    </div>
+  </section>
+
+  <!-- ============ DOCTOR PANEL ============ -->
+  <section id="view-medico" class="doc-wrap hidden">
+    <div class="doc-col">
+      <div class="doc-header">
+        <h2 class="doc-title">Painel do Médico</h2>
+        <a href="#">trocar painel</a>
+      </div>
+
+      <div class="doc-card">
+        <div class="field sala">
+          <label for="input-sala">Sua sala</label>
+          <input id="input-sala" type="text" inputmode="numeric" placeholder="Ex: 4" maxlength="6">
+        </div>
+        <div class="field">
+          <label for="input-nome">Nome do paciente</label>
+          <input id="input-nome" type="text" placeholder="Nome completo" autocomplete="off">
+        </div>
+        <button class="btn-call" id="btn-chamar" disabled>🔊 Chamar paciente</button>
+        <div class="toast" id="doc-toast"></div>
+      </div>
+
+      <div>
+        <div class="mine-title">Seus últimos chamados</div>
+        <ul class="mine-list" id="mine-list">
+          <li class="mine-empty">Você ainda não chamou nenhum paciente.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  var CALL_PREFIX = "upa-chamado:";
+  var SALA_KEY = "upa-medico-sala";
+  var PRUNE_AGE_MS = 12 * 60 * 60 * 1000; // apaga chamados com mais de 12h (limpeza, não afeta o plantão atual)
+
+  // ---------------- storage helpers ----------------
+  // Cada chamado é gravado em sua PRÓPRIA chave (upa-chamado:<timestamp>-<random>).
+  // Assim, dois médicos chamando ao mesmo tempo nunca se sobrescrevem: não há
+  // leitura-modificação-escrita de uma lista compartilhada, cada gravação é isolada.
+  var callCache = {};   // key -> entry
+  var sortedKeys = [];  // chaves ordenadas cronologicamente (o prefixo é o timestamp)
+
+  async function refreshCache(){
+    try{
+      var listRes = await window.storage.list(CALL_PREFIX, true);
+      var keys = (listRes && listRes.keys) || [];
+      var newKeys = keys.filter(function(k){ return !(k in callCache); });
+      if(newKeys.length){
+        await Promise.all(newKeys.map(async function(k){
+          try{
+            var r = await window.storage.get(k, true);
+            if(r && r.value) callCache[k] = JSON.parse(r.value);
+          }catch(e){ /* tenta de novo na próxima consulta */ }
+        }));
+      }
+      // remove do cache local chaves que já não existem remotamente (ex: limpeza)
+      Object.keys(callCache).forEach(function(k){
+        if(keys.indexOf(k) === -1) delete callCache[k];
+      });
+      sortedKeys = Object.keys(callCache).sort();
+      return true;
+    }catch(e){
+      return false;
+    }
+  }
+
+  function getSortedLog(){
+    return sortedKeys.map(function(k){ return callCache[k]; });
+  }
+
+  async function appendCall(nome, sala){
+    var key = CALL_PREFIX + Date.now() + "-" + Math.random().toString(36).slice(2,8);
+    var entry = { key: key, nome: nome, sala: sala, ts: Date.now() };
+    await window.storage.set(key, JSON.stringify(entry), true);
+    callCache[key] = entry;
+    sortedKeys = Object.keys(callCache).sort();
+    return entry;
+  }
+
+  async function pruneOld(){
+    var now = Date.now();
+    var toDelete = Object.keys(callCache).filter(function(k){
+      return (now - callCache[k].ts) > PRUNE_AGE_MS;
+    });
+    for(var i = 0; i < toDelete.length; i++){
+      try{
+        await window.storage.delete(toDelete[i], true);
+        delete callCache[toDelete[i]];
+      }catch(e){ /* tenta de novo na próxima limpeza */ }
+    }
+    sortedKeys = Object.keys(callCache).sort();
+  }
+
+  async function getSala(){
+    try{
+      var res = await window.storage.get(SALA_KEY, false);
+      return res && res.value ? res.value : "";
+    }catch(e){ return ""; }
+  }
+
+  async function saveSala(v){
+    try{ await window.storage.set(SALA_KEY, v, false); }catch(e){}
+  }
+
+  // ---------------- routing ----------------
+  var views = {
+    select: document.getElementById("view-select"),
+    recepcao: document.getElementById("view-recepcao"),
+    medico: document.getElementById("view-medico")
+  };
+
+  function route(){
+    var hash = (location.hash || "").replace("#","");
+    var mode = (hash === "recepcao" || hash === "medico") ? hash : "select";
+    Object.keys(views).forEach(function(k){
+      views[k].classList.toggle("hidden", k !== mode);
+    });
+    if(mode === "recepcao") initReception();
+    if(mode === "medico") initMedico();
+  }
+  window.addEventListener("hashchange", route);
+
+  // ============================================================
+  // RECEPTION VIEW
+  // ============================================================
+  var recInitialized = false;
+  var recPollTimer = null;
+  var lastSeenKey = null;
+  var speechQueue = [];
+  var isSpeaking = false;
+  var ptVoice = null;
+
+  function pickVoice(){
+    if(!("speechSynthesis" in window)) return;
+    var voices = window.speechSynthesis.getVoices();
+    ptVoice = voices.find(function(v){ return v.lang && v.lang.toLowerCase().indexOf("pt-br") === 0; })
+           || voices.find(function(v){ return v.lang && v.lang.toLowerCase().indexOf("pt") === 0; })
+           || null;
+  }
+  if("speechSynthesis" in window){
+    window.speechSynthesis.onvoiceschanged = pickVoice;
+    pickVoice();
+  }
+
+  function beep(){
+    try{
+      var ctx = window.__upaAudioCtx || (window.__upaAudioCtx = new (window.AudioContext || window.webkitAudioContext)());
+      var t0 = ctx.currentTime;
+      [880, 1318.5].forEach(function(freq, i){
+        var osc = ctx.createOscillator();
+        var gain = ctx.createGain();
+        osc.type = "sine";
+        osc.frequency.value = freq;
+        gain.gain.setValueAtTime(0.0001, t0 + i*0.16);
+        gain.gain.exponentialRampToValueAtTime(0.22, t0 + i*0.16 + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.0001, t0 + i*0.16 + 0.16);
+        osc.connect(gain).connect(ctx.destination);
+        osc.start(t0 + i*0.16);
+        osc.stop(t0 + i*0.16 + 0.18);
+      });
+    }catch(e){}
+  }
+
+  function speakText(text, onend){
+    if(!("speechSynthesis" in window)){ if(onend) onend(); return; }
+    var utter = new SpeechSynthesisUtterance(text);
+    utter.lang = "pt-BR";
+    if(ptVoice) utter.voice = ptVoice;
+    utter.rate = 0.95;
+    utter.pitch = 1;
+    utter.onend = function(){ if(onend) onend(); };
+    utter.onerror = function(){ if(onend) onend(); };
+    window.speechSynthesis.speak(utter);
+  }
+
+  function processSpeechQueue(){
+    if(isSpeaking || speechQueue.length === 0) return;
+    isSpeaking = true;
+    var entry = speechQueue.shift();
+    beep();
+    setTimeout(function(){
+      var text = "Paciente " + entry.nome + ". Dirija-se à sala " + entry.sala + ". Repetindo: sala " + entry.sala + ".";
+      speakText(text, function(){
+        isSpeaking = false;
+        processSpeechQueue();
+      });
+    }, 500);
+  }
+
+  function renderNow(entry){
+    var content = document.getElementById("now-content");
+    var timeEl = document.getElementById("now-time");
+    if(!entry){
+      content.innerHTML = '<div class="now-empty">Aguardando chamado…</div>';
+      timeEl.textContent = "";
+      return;
+    }
+    var letters = entry.nome.split("").map(function(ch, i){
+      var safe = ch === " " ? "&nbsp;" : ch;
+      return '<span class="letter" style="animation-delay:' + (i*35) + 'ms">' + safe + '</span>';
+    }).join("");
+    content.innerHTML =
+      '<div class="now-sala">SALA <b>' + entry.sala + '</b></div>' +
+      '<div class="now-name">' + letters + '</div>';
+    timeEl.textContent = new Date(entry.ts).toLocaleTimeString("pt-BR");
+  }
+
+  function renderHistory(log){
+    var list = document.getElementById("hist-list");
+    var items = log.slice().reverse().slice(1, 7); // exclude the current one, next 6
+    if(items.length === 0){
+      list.innerHTML = '<li class="hist-empty">Nenhum outro chamado ainda.</li>';
+      return;
+    }
+    list.innerHTML = items.map(function(e){
+      return '<li class="hist-item">' +
+        '<span class="hist-name">' + escapeHtml(e.nome) + '</span>' +
+        '<span class="hist-meta"><span class="hist-sala mono">SALA ' + escapeHtml(String(e.sala)) + '</span>' +
+        '<span class="hist-time">' + new Date(e.ts).toLocaleTimeString("pt-BR", {hour:"2-digit", minute:"2-digit"}) + '</span></span>' +
+      '</li>';
+    }).join("");
+  }
+
+  function escapeHtml(s){
+    return String(s).replace(/[&<>"']/g, function(c){
+      return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c];
+    });
+  }
+
+  async function pollReception(){
+    var log = await getLog();
+    if(log.length === 0){
+      renderNow(null);
+      renderHistory([]);
+      return;
+    }
+    var last = log[log.length - 1];
+    renderNow(last);
+    renderHistory(log);
+
+    if(lastSeenId === null){
+      // first poll after activation: don't replay old history, just show latest silently
+      lastSeenId = last.id;
+      return;
+    }
+    if(last.id !== lastSeenId){
+      var lastIdx = log.findIndex(function(e){ return e.id === lastSeenId; });
+      var newOnes = lastIdx === -1 ? [last] : log.slice(lastIdx + 1);
+      newOnes.forEach(function(e){ speechQueue.push(e); });
+      processSpeechQueue();
+      lastSeenId = last.id;
+    }
+  }
+
+  function tickClock(){
+    var el = document.getElementById("rec-clock");
+    if(el) el.textContent = new Date().toLocaleTimeString("pt-BR");
+  }
+
+  function initReception(){
+    if(recInitialized) return;
+    recInitialized = true;
+    tickClock();
+    setInterval(tickClock, 1000);
+
+    document.getElementById("btn-activate").addEventListener("click", function(){
+      // user-gesture unlock for audio + speech
+      try{
+        var ctx = window.__upaAudioCtx || (window.__upaAudioCtx = new (window.AudioContext || window.webkitAudioContext)());
+        if(ctx.state === "suspended") ctx.resume();
+      }catch(e){}
+      if("speechSynthesis" in window){
+        var warm = new SpeechSynthesisUtterance(" ");
+        window.speechSynthesis.speak(warm);
+      }
+      document.getElementById("rec-overlay").classList.add("hidden");
+      pollReception();
+      recPollTimer = setInterval(pollReception, 2500);
+    });
+  }
+
+  // ============================================================
+  // DOCTOR VIEW
+  // ============================================================
+  var docInitialized = false;
+
+  function showToast(msg, isErr){
+    var t = document.getElementById("doc-toast");
+    t.textContent = msg;
+    t.classList.remove("err");
+    if(isErr) t.classList.add("err");
+    t.classList.add("show");
+    setTimeout(function(){ t.classList.remove("show"); }, 2200);
+  }
+
+  async function renderMine(){
+    var salaInput = document.getElementById("input-sala");
+    var sala = salaInput.value.trim();
+    var list = document.getElementById("mine-list");
+    var log = await getLog();
+    var mine = log.filter(function(e){ return sala && String(e.sala) === sala; }).slice().reverse().slice(0, 6);
+    if(mine.length === 0){
+      list.innerHTML = '<li class="mine-empty">Você ainda não chamou nenhum paciente.</li>';
+      return;
+    }
+    list.innerHTML = mine.map(function(e){
+      return '<li class="mine-item">' +
+        '<div class="mine-info"><div class="name">' + escapeHtml(e.nome) + '</div>' +
+        '<div class="time">' + new Date(e.ts).toLocaleTimeString("pt-BR", {hour:"2-digit", minute:"2-digit"}) + '</div></div>' +
+        '<button class="btn-recall" data-nome="' + escapeHtml(e.nome) + '">🔁 Chamar de novo</button>' +
+      '</li>';
+    }).join("");
+
+    Array.prototype.forEach.call(list.querySelectorAll(".btn-recall"), function(btn){
+      btn.addEventListener("click", function(){
+        doCall(btn.getAttribute("data-nome"));
+      });
+    });
+  }
+
+  function updateButtonState(){
+    var sala = document.getElementById("input-sala").value.trim();
+    var nome = document.getElementById("input-nome").value.trim();
+    document.getElementById("btn-chamar").disabled = !(sala && nome);
+  }
+
+  async function doCall(nomeOverride){
+    var salaInput = document.getElementById("input-sala");
+    var nomeInput = document.getElementById("input-nome");
+    var sala = salaInput.value.trim();
+    var nome = (nomeOverride !== undefined ? nomeOverride : nomeInput.value.trim());
+    if(!sala || !nome) return;
+    var btn = document.getElementById("btn-chamar");
+    btn.disabled = true;
+    try{
+      await appendCall(nome, sala);
+      showToast("Chamado enviado — " + nome, false);
+      if(nomeOverride === undefined){
+        nomeInput.value = "";
+        nomeInput.focus();
+      }
+      renderMine();
+    }catch(e){
+      showToast("Falha ao enviar. Tente novamente.", true);
+    }
+    updateButtonState();
+  }
+
+  function initMedico(){
+    if(docInitialized) return;
+    docInitialized = true;
+
+    var salaInput = document.getElementById("input-sala");
+    var nomeInput = document.getElementById("input-nome");
+
+    getSala().then(function(v){
+      if(v){ salaInput.value = v; renderMine(); }
+    });
+
+    salaInput.addEventListener("input", function(){
+      updateButtonState();
+    });
+    salaInput.addEventListener("change", function(){
+      saveSala(salaInput.value.trim());
+      renderMine();
+    });
+    nomeInput.addEventListener("input", updateButtonState);
+    nomeInput.addEventListener("keydown", function(e){
+      if(e.key === "Enter") doCall();
+    });
+
+    document.getElementById("btn-chamar").addEventListener("click", function(){ doCall(); });
+
+    setInterval(renderMine, 6000);
+  }
+
+  route();
+})();
+</script>
+</body>
+</html>
