@@ -8,6 +8,14 @@
     try { source?.postMessage(payload, PRESC_ORIGIN); } catch {}
   };
 
+  function sanitizePreview(value) {
+    return String(value || '')
+      .replace(/[\u0000-\u001F\u007F\u202A-\u202E\u2066-\u2069]+/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, 12000);
+  }
+
   async function sendContext(message, source) {
     const patientId = String(message.patientId || '').trim();
     if (!patientId) return reply(source, {type:'CRS_PRESCRIPTION_CONTEXT_V2', patientId, context:{patient:null}, snapshot:null});
@@ -38,7 +46,8 @@
       const patient = message.patient && typeof message.patient === 'object' ? message.patient : {};
       const destination = allowedDestinations.has(message.destination) ? message.destination : 'salvar';
       const sector = destination === 'censo' && allowedSectors.has(message.sector) ? message.sector : '';
-      const snapshot = message.snapshot && typeof message.snapshot === 'object' ? message.snapshot : {};
+      const rawSnapshot = message.snapshot && typeof message.snapshot === 'object' ? message.snapshot : {};
+      const snapshot = {...rawSnapshot, previewText:sanitizePreview(rawSnapshot.previewText)};
 
       if (!patientId) throw new Error('Paciente não identificado.');
       if (!String(patient.name || '').trim()) throw new Error('Informe o nome do paciente antes de salvar.');
