@@ -52,7 +52,7 @@ jobs:
           node -e "const fs=require('fs'); const x=JSON.parse(fs.readFileSync('/tmp/health.json','utf8')); if(!x.ok || x.storage!=='durable-object-sqlite' || x.realtime!=='websocket') process.exit(1); console.log('health ok:', x);"
 
           curl --fail --silent --show-error --max-time 20 "$BASE/" -o /tmp/index.html
-          grep -q 'CRS Coophavila · Central Assistencial' /tmp/index.html
+          grep -q 'CRS Coophavila · Urgência e Emergência' /tmp/index.html
           grep -q 'Censo' /tmp/index.html
           grep -q 'Reavaliações' /tmp/index.html
           grep -q 'Prescrição' /tmp/index.html
