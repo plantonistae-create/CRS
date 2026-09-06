@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#071719">
+  <title>CRS Coophavila · Central Assistencial</title>
+  <link rel="stylesheet" href="/styles.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <div id="toast" class="toast" role="status"></div>
+
+  <section id="login-view" class="login-view hidden">
+    <div class="login-card">
+      <div class="brand-lockup"><span class="brand-dot"></span><div><strong>CRS Coophavila</strong><small>Central assistencial</small></div></div>
+      <h1>Acesso</h1>
+      <p>Entre com o perfil utilizado na unidade.</p>
+      <form id="login-form">
+        <label>Perfil
+          <select id="login-role">
+            <option value="doctor">Médico</option>
+            <option value="admin">Admin</option>
+          </select>
+        </label>
+        <label>Senha
+          <input id="login-password" type="password" autocomplete="current-password" required>
+        </label>
+        <button class="btn primary full" type="submit">Entrar</button>
+        <div id="login-error" class="form-error"></div>
+      </form>
+    </div>
+  </section>
+
+  <div id="app-shell" class="shell hidden">
+    <header class="topbar">
+      <div class="brand-lockup"><span class="brand-dot"></span><div><strong>CRS Coophavila</strong><small>Central assistencial</small></div></div>
+      <nav id="nav" class="nav">
+        <a href="#painel" data-route="painel">Painel</a>
+        <a href="#censo" data-route="censo">Censo</a>
+        <a href="#reavaliacoes" data-route="reavaliacoes">Reavaliações</a>
+        <a href="#prescricao" data-route="prescricao">Prescrição</a>
+        <a href="#chamador" data-route="chamador">Chamador</a>
+      </nav>
+      <div class="top-actions">
+        <span id="sync-status" class="sync">conectando…</span>
+        <span id="role-badge" class="role-badge"></span>
+        <button id="logout-btn" class="btn ghost small">Sair</button>
+      </div>
+    </header>
+    <main id="content" class="content"></main>
+  </div>
+
+  <div id="modal" class="modal hidden" aria-hidden="true"><div id="modal-card" class="modal-card"></div></div>
+</body>
+</html>
