@@ -1,0 +1,121 @@
+(() => {
+  'use strict';
+  const $ = (s, r=document) => r.querySelector(s);
+  const $$ = (s, r=document) => [...r.querySelectorAll(s)];
+  const state = { session:null, clinical:{patients:[],counts:{total:0,censo:0,reavaliacao:0,sectors:{emergencia:0,infantil:0,feminina:0,masculina:0}}}, calls:{active:[],recent:[],stats:{}}, route:'painel', clinicalWs:null, callWs:null, patientDetail:null, audioEnabled:false, lastSpoken:null };
+  const sectors = [
+    ['emergencia','🚨 Emergência'],
+    ['infantil','🧒 Enfermaria Infantil'],
+    ['feminina','👩 Enfermaria Feminina'],
+    ['masculina','👨 Enfermaria Masculina']
+  ];
+  const PRESC_URL='https://plantonistae-create.github.io/prescricao/crs.html';
+  const PRESC_ORIGIN='https://plantonistae-create.github.io';
+
+  function escapeHtml(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+  function fmt(v){if(!v)return '—';const d=new Date(v);return d.toLocaleString('pt-BR',{hour:'2-digit',minute:'2-digit',day:'2-digit',month:'2-digit'});}
+  function uuid(){return crypto.randomUUID?crypto.randomUUID():'p-'+Date.now()+'-'+Math.random().toString(36).slice(2);}
+  function toast(msg,err=false){const el=$('#toast');el.textContent=msg;el.className='toast show'+(err?' err':'');clearTimeout(toast.t);toast.t=setTimeout(()=>el.className='toast',2600);}
+  async function api(url, opts={}){
+    const init={...opts,headers:{...(opts.headers||{})}};
+    if(opts.json!==undefined){init.method=init.method||'POST';init.headers['content-type']='application/json';init.body=JSON.stringify(opts.json);delete init.json;}
+    const res=await fetch(url,init);
+    const ct=res.headers.get('content-type')||'';
+    const data=ct.includes('application/json')?await res.json().catch(()=>({})):null;
+    if(!res.ok){if(res.status===401){showLogin();}throw new Error(data?.error||`Falha (${res.status})`);}return data;
+  }
+  function setSync(ok,text){const el=$('#sync-status');el.textContent=text|| (ok?'tempo real ativo':'reconectando…');el.className='sync '+(ok?'ok':'err');}
+
+  async function boot(){
+    try{const r=await api('/api/auth/session');state.session=r.session;showApp();await initialLoad();startSockets();route();}
+    catch{showLogin();}
+  }
+  function showLogin(){state.session=null;closeSockets();$('#app-shell').classList.add('hidden');$('#login-view').classList.remove('hidden');setTimeout(()=>$('#login-password')?.focus(),50);}
+  function showApp(){ $('#login-view').classList.add('hidden');$('#app-shell').classList.remove('hidden');$('#role-badge').textContent=state.session.role==='admin'?'Admin':'Médico'; }
+  $('#login-form').addEventListener('submit',async e=>{e.preventDefault();const err=$('#login-error');err.textContent='';try{const r=await api('/api/auth/login',{json:{role:$('#login-role').value,password:$('#login-password').value}});state.session=r.session;$('#login-password').value='';showApp();await initialLoad();startSockets();route();}catch(ex){err.textContent=ex.message;}});
+  $('#logout-btn').addEventListener('click',async()=>{try{await api('/api/auth/logout',{method:'POST',headers:{'content-type':'application/json'},body:'{}'});}catch{}showLogin();});
+
+  async function initialLoad(){
+    try{const [c,cl]=await Promise.all([api('/api/clinical/state'),api('/api/state')]);state.clinical=c;state.calls=cl;}catch(e){toast(e.message,true);}
+  }
+  function wsUrl(scope){return `${location.protocol==='https:'?'wss':'ws'}://${location.host}/api/realtime?scope=${encodeURIComponent(scope)}`;}
+  function startSockets(){closeSockets();connectClinical();connectCalls();}
+  function closeSockets(){for(const k of ['clinicalWs','callWs']){try{state[k]?.close();}catch{}state[k]=null;}}
+  function connectClinical(){if(!state.session)return;const ws=new WebSocket(wsUrl('clinical'));state.clinicalWs=ws;ws.onopen=()=>setSync(true);ws.onmessage=e=>{try{const m=JSON.parse(e.data);if(m.type==='snapshot'){state.clinical=m.data;render();}}catch{}};ws.onclose=()=>{setSync(false);if(state.session)setTimeout(connectClinical,2200);};ws.onerror=()=>ws.close();}
+  function connectCalls(){if(!state.session)return;const ws=new WebSocket(wsUrl('internal'));state.callWs=ws;ws.onmessage=e=>{try{const m=JSON.parse(e.data);if(m.type==='snapshot'){const before=state.calls?.active?.[0];state.calls=m.data;maybeSpeak(before,state.calls?.active?.[0]);render();}}catch{}};ws.onclose=()=>{if(state.session)setTimeout(connectCalls,2600);};ws.onerror=()=>ws.close();}
+
+  window.addEventListener('hashchange',route);
+  function route(){if(!state.session)return;state.route=(location.hash||'#painel').slice(1);if(!['painel','censo','reavaliacoes','prescricao','chamador','recepcao'].includes(state.route))state.route='painel';$$('#nav a').forEach(a=>a.classList.toggle('active',a.dataset.route===state.route));render();}
+  function head(title,subtitle,actions=''){return `<div class="page-head"><div><div class="eyebrow">CRS COOPHAVILA</div><h1>${title}</h1><p>${subtitle}</p></div><div class="actions">${actions}</div></div>`;}
+  function render(){if(!state.session)return;const c=$('#content');if(!c)return;switch(state.route){case'censo':c.innerHTML=renderCenso();break;case'reavaliacoes':c.innerHTML=renderReavaliacoes();break;case'prescricao':c.innerHTML=renderPrescricao();break;case'chamador':c.innerHTML=renderChamador();break;case'recepcao':c.innerHTML=renderRecepcao();break;default:c.innerHTML=renderPainel();}bindPage();}
+  function renderPainel(){const counts=state.clinical.counts||{};return head('Painel','Visão rápida do fluxo assistencial e acesso aos módulos.')+`<div class="grid4">
+    <div class="metric"><small>Pacientes no Censo</small><div class="num">${counts.censo||0}</div></div>
+    <div class="metric"><small>Reavaliações</small><div class="num">${counts.reavaliacao||0}</div></div>
+    <div class="metric"><small>Chamadas ativas</small><div class="num">${state.calls.stats?.active||0}</div></div>
+    <div class="metric"><small>Total ativo</small><div class="num">${counts.total||0}</div></div></div>
+    <div class="quick-grid"><div class="quick"><div>🏥</div><h3>Censo</h3><p>Pacientes que permanecem na unidade, separados por setor.</p><a class="btn small" href="#censo">Abrir Censo</a></div>
+    <div class="quick"><div>💊</div><h3>Prescrição</h3><p>Nova prescrição ou edição da prescrição vigente de um paciente.</p><button class="btn primary small" data-new-presc>Abrir prescritor</button></div>
+    <div class="quick"><div>📢</div><h3>Chamador</h3><p>Chamador médico e tela da recepção da unidade.</p><a class="btn small" href="#chamador">Abrir Chamador</a></div></div>`;}
+  function renderCenso(){const pts=(state.clinical.patients||[]).filter(p=>p.status==='censo');return head('Censo','Pacientes que permanecem na unidade, organizados pelo setor físico.',`<button class="btn primary" data-add-manual>+ Adicionar paciente</button>`)+`<div class="sector-stack">${sectors.map(([id,label])=>{const list=pts.filter(p=>p.sector===id);return `<section class="sector"><div class="sector-head"><div class="sector-title">${label}<span class="count">${list.length}</span></div></div><div class="patient-list">${list.length?list.map(patientRow).join(''):'<div class="empty">Nenhum paciente neste setor.</div>'}</div></section>`;}).join('')}</div>`;}
+  function patientRow(p){return `<div class="patient-row"><div><div class="patient-name">${escapeHtml(p.name)}</div><div class="patient-meta">${escapeHtml(p.age?p.age+' anos':'Idade não informada')} · atualizado ${fmt(p.updatedAt)}</div></div><div class="patient-case">${escapeHtml(p.caseSummary||'Sem resumo registrado')}</div><div class="patient-pending">${escapeHtml(p.pending||'Sem pendências registradas')}</div><div class="row-actions"><button class="btn small" data-open-patient="${p.id}">Abrir</button><button class="btn small primary" data-edit-presc="${p.id}">Prescrição</button></div></div>`;}
+  function renderReavaliacoes(){const list=(state.clinical.patients||[]).filter(p=>p.status==='reavaliacao');return head('Reavaliações','Pacientes medicados ou em investigação breve que aguardam nova avaliação.',`<button class="btn primary" data-new-presc>+ Nova prescrição</button>`)+ (list.length?`<div class="review-grid">${list.map(p=>`<div class="review-card"><h3>${escapeHtml(p.name)}</h3><div class="time">em reavaliação desde ${fmt(p.reviewAt||p.updatedAt)}</div><div class="case">${escapeHtml(p.caseSummary||'Sem resumo registrado')}</div><div class="review-actions"><button class="btn small" data-open-patient="${p.id}">Abrir</button><button class="btn small primary" data-edit-presc="${p.id}">Prescrição</button><button class="btn small amber" data-to-censo="${p.id}">Enviar ao Censo</button><button class="btn small blue" data-discharge="${p.id}">Alta</button></div></div>`).join('')}</div>`:'<div class="empty panel">Nenhum paciente aguardando reavaliação.</div>');}
+  function renderPrescricao(){return head('Prescrição','O prescritor continua com a interface própria, mas salva o destino do paciente na Central CRS.',`<button class="btn primary" data-new-presc>Nova prescrição</button>`)+`<div class="links"><button class="link-card" data-new-presc><div class="link-icon">💊</div><div><h3>Nova prescrição</h3><p>Paciente novo, com opção de Alta, Reavaliação ou Censo ao finalizar.</p></div></button><a class="link-card" href="#censo"><div class="link-icon">🏥</div><div><h3>Prescrição vigente</h3><p>Abra o paciente no Censo e edite a última versão sem redigitar tudo.</p></div></a><a class="link-card" href="#reavaliacoes"><div class="link-icon">🔄</div><div><h3>Reavaliação</h3><p>Reabra a prescrição de pacientes que aguardam nova avaliação.</p></div></a></div>`;}
+  function renderChamador(){const doctor=state.session.role==='doctor';const active=state.calls.active||[];return head('Chamador','Chamador da unidade integrado à Central CRS.',`<a class="btn" href="#recepcao">Tela da recepção</a>`)+`<div class="call-grid"><section class="call-card"><h3>${doctor?'Chamar paciente':'Chamadas ativas'}</h3>${doctor?`<div class="form-grid"><div class="field"><label>Sala</label><input id="call-room" inputmode="numeric" placeholder="Ex: 4"></div><div class="field"><label>Paciente</label><input id="call-name" placeholder="Nome completo"></div></div><button id="call-btn" class="btn primary full" style="margin-top:12px">🔊 Chamar paciente</button>`:'<div class="notice">O perfil Admin acompanha o Chamador; chamadas novas continuam exclusivas do perfil Médico.</div>'}<div class="call-list">${active.length?active.map(callItem).join(''):'<div class="empty">Nenhuma chamada ativa.</div>'}</div></section><section class="now-card">${currentCallHtml()}</section></div>`;}
+  function callItem(c){return `<div class="call-item"><div class="call-item-top"><div><b>${escapeHtml(c.patientName)}</b><small> · sala ${escapeHtml(c.room)}</small></div><small>${fmt(c.lastCalledAt)}</small></div>${state.session.role==='doctor'?`<div class="call-actions"><button class="btn small amber" data-call-action="recall" data-call-id="${c.id}">Chamar novamente</button><button class="btn small" data-call-action="finish" data-call-id="${c.id}">Atendido</button><button class="btn small danger" data-call-action="absent" data-call-id="${c.id}">Não compareceu</button></div>`:''}</div>`;}
+  function currentCallHtml(){const c=state.calls.active?.[0];return c?`<div class="now-room">SALA ${escapeHtml(c.room)}</div><div class="now-name">${escapeHtml(c.patientName)}</div><div class="patient-meta">${fmt(c.lastCalledAt)}</div>`:'<div><div class="eyebrow">CHAMANDO AGORA</div><div class="now-name" style="font-size:34px;color:var(--muted)">Aguardando</div></div>';}
+  function renderRecepcao(){return head('Tela da recepção','Exibição ampliada do último chamado.',`<a class="btn" href="#chamador">Voltar</a><button class="btn primary" id="audio-btn">${state.audioEnabled?'Som ativado':'Ativar som'}</button>`)+`<div class="now-card" style="min-height:62vh">${currentCallHtml()}</div>`;}
+
+  function bindPage(){
+    $$('[data-new-presc]').forEach(b=>b.onclick=()=>openPrescription());
+    $$('[data-open-patient]').forEach(b=>b.onclick=()=>openPatient(b.dataset.openPatient));
+    $$('[data-edit-presc]').forEach(b=>b.onclick=()=>openPrescription(b.dataset.editPresc));
+    $$('[data-to-censo]').forEach(b=>b.onclick=()=>chooseSector(b.dataset.toCenso));
+    $$('[data-discharge]').forEach(b=>b.onclick=()=>changeDestination(b.dataset.discharge,'alta'));
+    $$('[data-add-manual]').forEach(b=>b.onclick=showManualPatientModal);
+    $$('[data-call-action]').forEach(b=>b.onclick=()=>callAction(b.dataset.callId,b.dataset.callAction));
+    if($('#call-btn')) $('#call-btn').onclick=createCall;
+    if($('#audio-btn')) $('#audio-btn').onclick=()=>{state.audioEnabled=true;try{const u=new SpeechSynthesisUtterance('Som ativado');u.lang='pt-BR';speechSynthesis.speak(u);}catch{}render();};
+  }
+
+  async function createCall(){const room=$('#call-room').value.trim(),patientName=$('#call-name').value.trim();if(!room||!patientName)return toast('Informe sala e paciente.',true);try{await api('/api/calls',{json:{room,patientName}});$('#call-name').value='';toast('Chamado enviado.');}catch(e){toast(e.message,true);}}
+  async function callAction(id,action){try{await api(`/api/calls/${encodeURIComponent(id)}/${action}`,{json:{}});}catch(e){toast(e.message,true);}}
+  function maybeSpeak(before,current){if(!state.audioEnabled||state.route!=='recepcao'||!current)return;const key=current.id+':'+current.callCount;if(state.lastSpoken===key)return;if(before&&before.id===current.id&&before.callCount===current.callCount)return;state.lastSpoken=key;try{const u=new SpeechSynthesisUtterance(`Paciente ${current.patientName}. Dirija-se à sala ${current.room}. Repetindo: sala ${current.room}.`);u.lang='pt-BR';u.rate=.95;speechSynthesis.speak(u);}catch{}}
+
+  function modal(html){$('#modal-card').innerHTML=html;$('#modal').classList.remove('hidden');$('#modal').setAttribute('aria-hidden','false');$$('[data-close-modal]').forEach(b=>b.onclick=closeModal);}
+  function closeModal(){$('#modal').classList.add('hidden');$('#modal').setAttribute('aria-hidden','true');state.patientDetail=null;}
+  $('#modal').addEventListener('click',e=>{if(e.target===$('#modal'))closeModal();});
+
+  function showManualPatientModal(){modal(`<div class="modal-head"><div><h2>Adicionar ao Censo</h2><div class="patient-meta">Entrada manual de contingência.</div></div><button class="close" data-close-modal>×</button></div><div class="modal-body"><div class="form-grid"><div class="field"><label>Nome</label><input id="m-name"></div><div class="field"><label>Idade</label><input id="m-age"></div><div class="field"><label>Setor</label><select id="m-sector">${sectors.map(([id,l])=>`<option value="${id}">${escapeHtml(l.replace(/^[^ ]+ /,''))}</option>`).join('')}</select></div><div class="field full"><label>Caso / resumo</label><textarea id="m-case"></textarea></div><div class="field full"><label>Pendências</label><textarea id="m-pending"></textarea></div></div><div class="modal-actions"><button class="btn" data-close-modal>Cancelar</button><button class="btn primary" id="m-save">Adicionar</button></div></div>`);$('#m-save').onclick=async()=>{const name=$('#m-name').value.trim();if(!name)return toast('Informe o nome.',true);try{await api('/api/clinical/patients',{json:{name,age:$('#m-age').value.trim(),sector:$('#m-sector').value,caseSummary:$('#m-case').value.trim(),pending:$('#m-pending').value.trim(),status:'censo'}});closeModal();toast('Paciente adicionado ao Censo.');}catch(e){toast(e.message,true);}};}
+
+  async function openPatient(id){try{state.patientDetail=await api(`/api/clinical/patients/${encodeURIComponent(id)}`);renderPatientModal();}catch(e){toast(e.message,true);}}
+  function renderPatientModal(){const d=state.patientDetail,p=d.patient;modal(`<div class="modal-head"><div><h2>${escapeHtml(p.name)}</h2><div class="patient-meta">${escapeHtml(p.age?p.age+' anos':'Idade não informada')} · ${p.status==='censo'?escapeHtml(sectors.find(s=>s[0]===p.sector)?.[1]||'Censo'):'Reavaliação'}</div></div><button class="close" data-close-modal>×</button></div><div class="tabs"><button class="tab active" data-tab="resumo">Resumo</button><button class="tab" data-tab="exames">Exames</button><button class="tab" data-tab="prescricoes">Prescrições</button></div><div class="modal-body"><section class="tab-pane active" id="pane-resumo">${summaryPane(d)}</section><section class="tab-pane" id="pane-exames">${examsPane(d)}</section><section class="tab-pane" id="pane-prescricoes">${prescriptionsPane(d)}</section></div>`);bindPatientModal();}
+  function summaryPane(d){const p=d.patient;return `<div class="form-grid"><div class="field full"><label>Caso / resumo</label><textarea id="p-case">${escapeHtml(p.caseSummary||'')}</textarea></div><div class="field full"><label>Pendências</label><textarea id="p-pending">${escapeHtml(p.pending||'')}</textarea></div>${p.status==='censo'?`<div class="field"><label>Setor atual</label><select id="p-sector">${sectors.map(([id,l])=>`<option value="${id}" ${id===p.sector?'selected':''}>${escapeHtml(l.replace(/^[^ ]+ /,''))}</option>`).join('')}</select></div>`:''}</div><div class="modal-actions"><button class="btn primary" id="p-save">Salvar alterações</button><button class="btn" id="p-presc">Abrir prescrição</button>${p.status==='censo'?'<button class="btn blue" id="p-discharge">Alta / retirar do Censo</button>':'<button class="btn amber" id="p-censo">Enviar ao Censo</button>'}</div>`;}
+  function examsPane(d){return `<div class="panel"><h4>Adicionar resultado manual</h4><div class="form-grid"><div class="field"><label>Exame</label><input id="exam-title" placeholder="Ex: Hemograma"></div><div class="field full"><label>Resultado</label><textarea id="exam-text"></textarea></div></div><div class="modal-actions"><button class="btn primary small" id="exam-manual-save">Salvar resultado</button></div></div><div class="panel" style="margin-top:12px"><h4>Anexar PDF ou imagem</h4><div class="field"><input id="exam-file" type="file" accept="application/pdf,image/jpeg,image/png,image/webp"></div><div class="patient-meta">PDF, JPG, PNG ou WEBP · até 12 MB. O arquivo fica privado e exige login para abrir.</div></div><div class="list-plain" style="margin-top:12px">${d.exams.length?d.exams.map(x=>`<div class="item"><div class="item-main"><b>${escapeHtml(x.title)}</b><div class="item-meta">${fmt(x.createdAt)} · ${x.kind==='file'?'arquivo':'manual'}</div><p>${escapeHtml(x.text||x.fileName||'')}</p></div>${x.hasFile?`<a class="btn small" target="_blank" rel="noopener" href="/api/clinical/exams/${encodeURIComponent(x.id)}/file">Abrir</a>`:''}</div>`).join(''):'<div class="empty">Nenhum exame registrado.</div>'}</div>`;}
+  function prescriptionsPane(d){return `<div class="modal-actions" style="margin-top:0;margin-bottom:12px"><button class="btn primary" id="presc-current">${d.prescriptions.length?'Editar prescrição vigente':'Criar prescrição'}</button></div><div class="list-plain">${d.prescriptions.length?d.prescriptions.map((x,i)=>`<div class="item"><div class="item-main"><b>${i===0?'Prescrição vigente':'Prescrição anterior'}</b><div class="item-meta">${fmt(x.createdAt)}</div><p>${escapeHtml((x.previewText||'Prescrição salva').slice(0,800))}</p></div></div>`).join(''):'<div class="empty">Nenhuma prescrição salva.</div>'}</div>`;}
+  function bindPatientModal(){
+    $$('.tab').forEach(t=>t.onclick=()=>{$$('.tab').forEach(x=>x.classList.toggle('active',x===t));$$('.tab-pane').forEach(p=>p.classList.toggle('active',p.id==='pane-'+t.dataset.tab));});
+    $('#p-save').onclick=savePatientSummary;$('#p-presc').onclick=()=>openPrescription(state.patientDetail.patient.id);if($('#p-discharge'))$('#p-discharge').onclick=()=>changeDestination(state.patientDetail.patient.id,'alta');if($('#p-censo'))$('#p-censo').onclick=()=>chooseSector(state.patientDetail.patient.id);if($('#exam-manual-save'))$('#exam-manual-save').onclick=saveManualExam;if($('#exam-file'))$('#exam-file').onchange=uploadExam;if($('#presc-current'))$('#presc-current').onclick=()=>openPrescription(state.patientDetail.patient.id);
+  }
+  async function savePatientSummary(){const p=state.patientDetail.patient;try{await api(`/api/clinical/patients/${encodeURIComponent(p.id)}/update`,{json:{caseSummary:$('#p-case').value.trim(),pending:$('#p-pending').value.trim(),sector:$('#p-sector')?.value}});state.patientDetail=await api(`/api/clinical/patients/${encodeURIComponent(p.id)}`);renderPatientModal();toast('Paciente atualizado.');}catch(e){toast(e.message,true);}}
+  async function saveManualExam(){const p=state.patientDetail.patient,title=$('#exam-title').value.trim()||'Exame',text=$('#exam-text').value.trim();if(!text)return toast('Informe o resultado.',true);try{await api(`/api/clinical/patients/${encodeURIComponent(p.id)}/exams/manual`,{json:{title,text}});state.patientDetail=await api(`/api/clinical/patients/${encodeURIComponent(p.id)}`);renderPatientModal();toast('Exame salvo.');}catch(e){toast(e.message,true);}}
+  async function uploadExam(e){const file=e.target.files?.[0];if(!file)return;const p=state.patientDetail.patient;const fd=new FormData();fd.append('file',file);try{await api(`/api/clinical/patients/${encodeURIComponent(p.id)}/exams/file`,{method:'POST',body:fd});state.patientDetail=await api(`/api/clinical/patients/${encodeURIComponent(p.id)}`);renderPatientModal();toast('Exame anexado.');}catch(ex){toast(ex.message,true);e.target.value='';}}
+
+  function chooseSector(id){modal(`<div class="modal-head"><div><h2>Destino no Censo</h2><div class="patient-meta">Selecione o setor físico do paciente.</div></div><button class="close" data-close-modal>×</button></div><div class="modal-body"><div class="field"><label>Setor</label><select id="dest-sector">${sectors.map(([sid,l])=>`<option value="${sid}">${escapeHtml(l.replace(/^[^ ]+ /,''))}</option>`).join('')}</select></div><div class="modal-actions"><button class="btn" data-close-modal>Cancelar</button><button class="btn primary" id="dest-save">Enviar ao Censo</button></div></div>`);$('#dest-save').onclick=()=>changeDestination(id,'censo',$('#dest-sector').value);}
+  async function changeDestination(id,destination,sector=''){if(destination==='alta'&&!confirm('Finalizar este atendimento e retirar o paciente das filas ativas?'))return;try{await api(`/api/clinical/patients/${encodeURIComponent(id)}/destination`,{json:{destination,sector}});closeModal();toast(destination==='alta'?'Paciente retirado das filas ativas.':'Paciente enviado ao Censo.');}catch(e){toast(e.message,true);}}
+
+  async function openPrescription(patientId){const id=patientId||uuid();const u=new URL(PRESC_URL);u.searchParams.set('patientId',id);u.searchParams.set('returnOrigin',location.origin);const w=window.open(u.toString(),'crs-prescricao-'+id);if(!w)toast('O navegador bloqueou a nova aba. Libere pop-ups para o prescritor.',true);}
+  window.addEventListener('message',async e=>{
+    if(e.origin!==PRESC_ORIGIN||!e.data||typeof e.data!=='object')return;
+    if(e.data.type==='CRS_PRESCRIPTION_READY'){
+      let context={patient:null},snapshot=null;
+      try{const d=await api(`/api/clinical/patients/${encodeURIComponent(e.data.patientId)}`);context.patient={name:d.patient.name,age:d.patient.age,sex:d.patient.sex};snapshot=d.latestPrescription?.snapshot||null;}catch{}
+      try{e.source.postMessage({type:'CRS_PRESCRIPTION_CONTEXT',context,snapshot},PRESC_ORIGIN);}catch{}
+      return;
+    }
+    if(e.data.type==='CRS_PRESCRIPTION_SAVED'){
+      try{await api('/api/clinical/prescription',{json:{patientId:e.data.patientId,patient:e.data.patient,destination:e.data.destination||'salvar',sector:e.data.sector||'',snapshot:e.data.snapshot||{}}});toast(e.data.destination==='censo'?'Prescrição salva e paciente enviado ao Censo.':e.data.destination==='reavaliacao'?'Prescrição salva e paciente enviado para Reavaliação.':e.data.destination==='alta'?'Prescrição salva e atendimento finalizado.':'Prescrição salva na Central CRS.');if(state.patientDetail?.patient?.id===e.data.patientId){state.patientDetail=await api(`/api/clinical/patients/${encodeURIComponent(e.data.patientId)}`);renderPatientModal();}}catch(ex){toast(ex.message,true);}
+    }
+  });
+
+  boot();
+})();
