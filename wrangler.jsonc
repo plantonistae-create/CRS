@@ -22,12 +22,6 @@
       "storage": "sqlite"
     }
   },
-  "r2_buckets": [
-    {
-      "binding": "EXAMS_BUCKET",
-      "bucket_name": "crs-coophavila-exames"
-    }
-  ],
   "observability": {
     "enabled": true
   }
