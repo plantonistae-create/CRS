@@ -1,0 +1,34 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "chamador-crs-coophavila",
+  "main": "src/index.js",
+  "compatibility_date": "2026-09-06",
+  "workers_dev": true,
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS"
+  },
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "CALL_ROOM",
+        "class_name": "CallRoom"
+      }
+    ]
+  },
+  "exports": {
+    "CallRoom": {
+      "type": "durable-object",
+      "storage": "sqlite"
+    }
+  },
+  "r2_buckets": [
+    {
+      "binding": "EXAMS_BUCKET",
+      "bucket_name": "crs-coophavila-exames"
+    }
+  ],
+  "observability": {
+    "enabled": true
+  }
+}
