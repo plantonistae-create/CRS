@@ -2,627 +2,264 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Chamador de Pacientes · UPA</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Central CRS Coophavila</title>
 <style>
-  :root{
-    --bg-0:#081619;
-    --bg-1:#0B2027;
-    --bg-2:#0F3B3D;
-    --card:#12343B;
-    --card-2:#163C42;
-    --line:rgba(242,247,245,0.10);
-    --ink:#F2F7F5;
-    --ink-dim:#9FB6B4;
-    --ink-dimmer:#6E8B89;
-    --amber:#F2A93B;
-    --amber-dim:#8A6321;
-    --teal:#2EC4B6;
-    --danger:#E1595A;
-    --radius:14px;
-  }
-  *{box-sizing:border-box;}
-  html,body{height:100%;}
-  body{
-    margin:0;
-    background:radial-gradient(120% 140% at 15% 0%, var(--bg-2) 0%, var(--bg-1) 45%, var(--bg-0) 100%);
-    color:var(--ink);
-    font-family:'Inter',system-ui,sans-serif;
-    min-height:100vh;
-    -webkit-font-smoothing:antialiased;
-  }
-  .mono{font-family:'IBM Plex Mono',monospace;}
-  .display-font{font-family:'Oswald',sans-serif; text-transform:uppercase; letter-spacing:0.02em;}
-  button{font-family:inherit; cursor:pointer;}
-  input{font-family:inherit;}
-  a{color:inherit;}
-
-  /* ---------- layout shells ---------- */
-  #app{min-height:100vh; display:flex; flex-direction:column;}
-  .hidden{display:none !important;}
-
-  /* ---------- MODE SELECT ---------- */
-  .select-wrap{
-    flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center;
-    padding:32px 20px; gap:40px; text-align:center;
-  }
-  .select-eyebrow{
-    color:var(--teal); font-family:'IBM Plex Mono',monospace; font-size:12px;
-    letter-spacing:0.28em; text-transform:uppercase;
-  }
-  .select-title{
-    font-family:'Oswald',sans-serif; font-weight:600; text-transform:uppercase;
-    font-size:clamp(28px,5vw,44px); letter-spacing:0.01em; margin:6px 0 0 0;
-  }
-  .select-cards{
-    display:flex; gap:20px; flex-wrap:wrap; justify-content:center; max-width:760px;
-  }
-  .select-card{
-    width:300px; background:var(--card); border:1px solid var(--line); border-radius:var(--radius);
-    padding:28px 24px; text-align:left; transition:transform .15s ease, border-color .15s ease, background .15s ease;
-    text-decoration:none; display:block;
-  }
-  .select-card:hover{transform:translateY(-3px); border-color:var(--teal); background:var(--card-2);}
-  .select-card .icon{font-size:28px; display:block; margin-bottom:14px;}
-  .select-card h3{font-family:'Oswald',sans-serif; text-transform:uppercase; font-size:19px; margin:0 0 8px 0; letter-spacing:0.02em;}
-  .select-card p{color:var(--ink-dim); font-size:14px; line-height:1.5; margin:0;}
-
-  /* ---------- RECEPTION ---------- */
-  .rec-wrap{flex:1; display:flex; flex-direction:column; padding:28px clamp(20px,4vw,56px); position:relative;}
-  .rec-header{display:flex; align-items:center; justify-content:space-between; margin-bottom:clamp(20px,4vh,48px);}
-  .brand{display:flex; align-items:center; gap:10px;}
-  .brand .dot{width:9px; height:9px; border-radius:50%; background:var(--teal); box-shadow:0 0 0 4px rgba(46,196,182,0.15);}
-  .brand span{font-family:'IBM Plex Mono',monospace; font-size:13px; letter-spacing:0.14em; color:var(--ink-dim); text-transform:uppercase;}
-  .rec-clock{font-family:'IBM Plex Mono',monospace; font-size:15px; color:var(--ink-dim);}
-
-  .rec-body{flex:1; display:grid; grid-template-columns:1.6fr 1fr; gap:clamp(20px,3vw,40px); min-height:0;}
-  @media (max-width:820px){ .rec-body{grid-template-columns:1fr;} }
-
-  .now-card{
-    background:linear-gradient(180deg, var(--card-2) 0%, var(--card) 100%);
-    border:1px solid var(--line); border-radius:20px;
-    display:flex; flex-direction:column; align-items:center; justify-content:center;
-    padding:clamp(24px,5vh,60px) 20px; text-align:center; position:relative; overflow:hidden;
-  }
-  .now-card::before{
-    content:""; position:absolute; inset:0;
-    background:radial-gradient(60% 60% at 50% 0%, rgba(242,169,59,0.10), transparent 70%);
-    pointer-events:none;
-  }
-  .now-eyebrow{
-    font-family:'IBM Plex Mono',monospace; font-size:13px; letter-spacing:0.3em; color:var(--amber);
-    text-transform:uppercase; margin-bottom:18px;
-  }
-  .now-sala{
-    font-family:'Oswald',sans-serif; font-weight:500; text-transform:uppercase;
-    font-size:clamp(18px,2.4vw,26px); color:var(--ink-dim); letter-spacing:0.1em; margin-bottom:6px;
-  }
-  .now-sala b{color:var(--teal); font-weight:600;}
-  .now-name{
-    font-family:'Oswald',sans-serif; font-weight:700; text-transform:uppercase;
-    font-size:clamp(34px,7vw,88px); line-height:1.02; letter-spacing:0.01em; color:var(--ink);
-    margin:10px 0 0 0; word-break:break-word;
-  }
-  .now-name .letter{
-    display:inline-block; opacity:0; transform:translateY(18px);
-    animation:letterIn .45s cubic-bezier(.2,.8,.2,1) forwards;
-  }
-  @keyframes letterIn{ to{opacity:1; transform:translateY(0);} }
-  .now-empty{color:var(--ink-dimmer); font-family:'Oswald',sans-serif; text-transform:uppercase; font-size:clamp(20px,3vw,30px); letter-spacing:0.05em;}
-  .now-time{margin-top:22px; font-family:'IBM Plex Mono',monospace; font-size:13px; color:var(--ink-dimmer);}
-
-  .hist-card{background:var(--card); border:1px solid var(--line); border-radius:20px; padding:22px; display:flex; flex-direction:column; min-height:0;}
-  .hist-title{font-family:'IBM Plex Mono',monospace; font-size:12px; letter-spacing:0.2em; color:var(--ink-dimmer); text-transform:uppercase; margin-bottom:14px;}
-  .hist-list{list-style:none; margin:0; padding:0; overflow-y:auto; flex:1; display:flex; flex-direction:column; gap:2px;}
-  .hist-item{display:flex; align-items:baseline; justify-content:space-between; gap:12px; padding:13px 4px; border-bottom:1px solid var(--line);}
-  .hist-item:last-child{border-bottom:none;}
-  .hist-name{font-weight:600; font-size:16px;}
-  .hist-meta{display:flex; align-items:baseline; gap:10px; flex-shrink:0;}
-  .hist-sala{font-family:'IBM Plex Mono',monospace; font-size:13px; color:var(--teal);}
-  .hist-time{font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--ink-dimmer);}
-  .hist-empty{color:var(--ink-dimmer); font-size:14px; padding:8px 4px;}
-
-  .rec-overlay{
-    position:absolute; inset:0; background:var(--bg-0); display:flex; flex-direction:column;
-    align-items:center; justify-content:center; gap:18px; text-align:center; padding:24px; z-index:10;
-  }
-  .rec-overlay p{color:var(--ink-dim); max-width:380px; font-size:14px; line-height:1.5; margin:0;}
-  .btn-activate{
-    background:var(--amber); color:#231402; border:none; border-radius:10px; padding:16px 30px;
-    font-family:'Oswald',sans-serif; text-transform:uppercase; letter-spacing:0.05em; font-weight:600; font-size:16px;
-  }
-  .btn-activate:hover{filter:brightness(1.08);}
-  .back-link-rec{position:absolute; top:20px; right:24px; font-size:12px; color:var(--ink-dimmer); font-family:'IBM Plex Mono',monospace; text-decoration:none;}
-
-  /* ---------- DOCTOR PANEL ---------- */
-  .doc-wrap{flex:1; display:flex; justify-content:center; padding:24px 16px 60px;}
-  .doc-col{width:100%; max-width:460px; display:flex; flex-direction:column; gap:18px;}
-  .doc-header{display:flex; align-items:center; justify-content:space-between; padding:6px 2px 8px;}
-  .doc-header a{font-size:12px; color:var(--ink-dimmer); font-family:'IBM Plex Mono',monospace; text-decoration:none;}
-  .doc-title{font-family:'Oswald',sans-serif; text-transform:uppercase; font-weight:600; font-size:22px; letter-spacing:0.02em; margin:0;}
-
-  .doc-card{background:var(--card); border:1px solid var(--line); border-radius:var(--radius); padding:22px;}
-  .field{margin-bottom:16px;}
-  .field:last-child{margin-bottom:0;}
-  .field label{display:block; font-size:12px; letter-spacing:0.1em; text-transform:uppercase; color:var(--ink-dimmer); margin-bottom:8px; font-family:'IBM Plex Mono',monospace;}
-  .field input{
-    width:100%; background:var(--bg-1); border:1px solid var(--line); border-radius:9px; color:var(--ink);
-    padding:13px 14px; font-size:16px; outline:none; transition:border-color .15s ease;
-  }
-  .field input:focus{border-color:var(--teal);}
-  .field.sala input{max-width:120px; text-align:center; font-family:'IBM Plex Mono',monospace; font-size:18px;}
-
-  .btn-call{
-    width:100%; background:var(--teal); color:#04211E; border:none; border-radius:10px;
-    padding:16px; font-family:'Oswald',sans-serif; text-transform:uppercase; letter-spacing:0.05em;
-    font-weight:600; font-size:17px; margin-top:6px; transition:filter .15s ease, transform .1s ease;
-  }
-  .btn-call:hover{filter:brightness(1.08);}
-  .btn-call:active{transform:scale(0.99);}
-  .btn-call:disabled{background:var(--card-2); color:var(--ink-dimmer); cursor:not-allowed;}
-
-  .toast{
-    font-size:13px; color:var(--teal); font-family:'IBM Plex Mono',monospace; text-align:center;
-    min-height:18px; opacity:0; transition:opacity .2s ease;
-  }
-  .toast.show{opacity:1;}
-  .toast.err{color:var(--danger);}
-
-  .mine-title{font-family:'IBM Plex Mono',monospace; font-size:12px; letter-spacing:0.16em; color:var(--ink-dimmer); text-transform:uppercase; margin:4px 2px 2px;}
-  .mine-list{list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:8px;}
-  .mine-item{
-    background:var(--card); border:1px solid var(--line); border-radius:10px; padding:12px 14px;
-    display:flex; align-items:center; justify-content:space-between; gap:10px;
-  }
-  .mine-info .name{font-weight:600; font-size:14px;}
-  .mine-info .time{font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--ink-dimmer); margin-top:2px;}
-  .btn-recall{
-    background:transparent; border:1px solid var(--line); color:var(--ink-dim); border-radius:8px;
-    padding:8px 12px; font-size:12px; white-space:nowrap; flex-shrink:0;
-  }
-  .btn-recall:hover{border-color:var(--amber); color:var(--amber);}
-  .mine-empty{color:var(--ink-dimmer); font-size:13px; padding:4px 2px;}
+:root{--bg0:#061417;--bg1:#0a2024;--card:#102f34;--card2:#143a40;--line:rgba(236,248,246,.11);--ink:#f1f8f6;--dim:#a7bcba;--muted:#6f8d8b;--teal:#35c7b8;--amber:#f2a93b;--danger:#e26161;--blue:#67a8ff;--green:#68d391;--radius:14px}
+*{box-sizing:border-box}html,body{min-height:100%;margin:0;background:radial-gradient(110% 90% at 10% 0%,#10383d 0%,var(--bg1) 46%,var(--bg0) 100%);color:var(--ink);font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased}button,input,textarea,select{font:inherit}button{cursor:pointer}.hidden{display:none!important}.mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}.muted{color:var(--dim)}
+.shell{min-height:100vh}.topbar{height:66px;position:sticky;top:0;z-index:30;display:flex;align-items:center;gap:18px;padding:0 24px;background:rgba(6,20,23,.94);backdrop-filter:blur(14px);border-bottom:1px solid var(--line)}.brand{display:flex;align-items:center;gap:10px;min-width:190px}.brand-dot{width:10px;height:10px;border-radius:50%;background:var(--teal);box-shadow:0 0 0 5px rgba(53,199,184,.12)}.brand b{font-size:15px;letter-spacing:.01em}.brand small{display:block;color:var(--muted);font-size:10px;margin-top:2px}.nav{display:flex;gap:6px;overflow:auto;flex:1}.nav a{color:var(--dim);text-decoration:none;padding:9px 11px;border-radius:9px;font-size:13px;font-weight:700;white-space:nowrap}.nav a:hover,.nav a.active{background:var(--card);color:var(--ink)}.sync{font-size:11px;color:var(--muted);white-space:nowrap}.sync.ok{color:#8be0d7}.sync.err{color:#ffaaaa}.content{max-width:1440px;margin:0 auto;padding:26px 24px 60px}.page-head{display:flex;align-items:flex-end;justify-content:space-between;gap:18px;margin-bottom:22px}.eyebrow{color:var(--teal);font-size:11px;letter-spacing:.18em;text-transform:uppercase;font-weight:800}.page-head h1{margin:5px 0 0;font-size:28px}.page-head p{margin:5px 0 0;color:var(--dim);font-size:13px}.actions{display:flex;gap:8px;flex-wrap:wrap}.btn{border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--ink);padding:10px 13px;font-weight:750}.btn:hover{filter:brightness(1.08)}.btn.primary{background:var(--teal);border-color:var(--teal);color:#032522}.btn.amber{border-color:rgba(242,169,59,.5);color:#ffd181}.btn.danger{border-color:rgba(226,97,97,.5);color:#ffb0b0}.btn.blue{border-color:rgba(103,168,255,.5);color:#a8ccff}.btn.small{padding:7px 9px;font-size:12px}.grid4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}.metric{background:linear-gradient(180deg,var(--card2),var(--card));border:1px solid var(--line);border-radius:var(--radius);padding:17px}.metric .num{font-size:32px;font-weight:850;margin-top:8px}.metric small{color:var(--dim);font-size:12px}.quick-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-top:18px}.quick{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:18px}.quick h3{margin:8px 0 6px}.quick p{margin:0 0 14px;color:var(--dim);font-size:13px;line-height:1.5}.sector-stack{display:flex;flex-direction:column;gap:16px}.sector{background:rgba(16,47,52,.72);border:1px solid var(--line);border-radius:16px;overflow:hidden}.sector-head{display:flex;align-items:center;justify-content:space-between;padding:15px 17px;border-bottom:1px solid var(--line);background:rgba(20,58,64,.65)}.sector-title{font-weight:850}.count{display:inline-flex;min-width:25px;height:25px;align-items:center;justify-content:center;border-radius:999px;background:rgba(255,255,255,.08);font-size:12px;margin-left:8px}.patient-list{display:flex;flex-direction:column}.patient-row{display:grid;grid-template-columns:minmax(220px,1.15fr) minmax(180px,1fr) minmax(180px,1fr) auto;gap:14px;align-items:center;padding:14px 17px;border-bottom:1px solid var(--line)}.patient-row:last-child{border-bottom:0}.patient-name{font-weight:800}.patient-meta{color:var(--muted);font-size:11px;margin-top:4px}.patient-case,.patient-pending{font-size:13px;line-height:1.35}.patient-pending{color:#ffd58c}.row-actions{display:flex;gap:6px;justify-content:flex-end}.empty{padding:28px 18px;text-align:center;color:var(--muted);font-size:13px}.review-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.review-card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px}.review-card h3{margin:0 0 4px;font-size:17px}.review-card .case{margin:9px 0;color:var(--dim);font-size:13px}.review-card .time{font-size:11px;color:var(--amber)}.review-actions{display:flex;gap:7px;flex-wrap:wrap;margin-top:14px}.link-card{display:flex;align-items:center;gap:14px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px;text-decoration:none;color:var(--ink)}.link-card:hover{border-color:rgba(53,199,184,.5)}.link-icon{font-size:28px}.link-card h3{margin:0 0 4px}.link-card p{margin:0;color:var(--dim);font-size:13px}.links{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}.modal{position:fixed;inset:0;background:rgba(0,8,10,.76);z-index:70;display:none;align-items:center;justify-content:center;padding:18px}.modal.show{display:flex}.modal-card{width:min(760px,100%);max-height:90vh;overflow:auto;background:#0d292d;border:1px solid var(--line);border-radius:18px;box-shadow:0 28px 90px rgba(0,0,0,.5)}.modal-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:18px 20px;border-bottom:1px solid var(--line)}.modal-head h2{margin:0;font-size:21px}.modal-body{padding:20px}.close{background:transparent;border:0;color:var(--dim);font-size:22px}.form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.field{display:flex;flex-direction:column;gap:6px}.field.full{grid-column:1/-1}.field label{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:800}.field input,.field textarea,.field select{width:100%;background:#071d20;color:var(--ink);border:1px solid var(--line);border-radius:10px;padding:11px 12px;outline:none}.field textarea{min-height:82px;resize:vertical}.field input:focus,.field textarea:focus,.field select:focus{border-color:rgba(53,199,184,.65)}.modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:16px;flex-wrap:wrap}.tabs{display:flex;gap:6px;border-bottom:1px solid var(--line);padding:0 20px}.tab{background:transparent;border:0;color:var(--dim);padding:12px 8px;border-bottom:2px solid transparent;font-weight:800}.tab.active{color:var(--teal);border-color:var(--teal)}.tab-pane{display:none}.tab-pane.active{display:block}.info-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.panel{border:1px solid var(--line);border-radius:12px;background:rgba(6,20,23,.35);padding:14px}.panel h4{margin:0 0 9px}.list-plain{display:flex;flex-direction:column;gap:8px}.item{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;padding:10px;border:1px solid var(--line);border-radius:10px;background:#0a2226}.item-main{min-width:0}.item-main b{font-size:13px}.item-main p{margin:4px 0 0;color:var(--dim);font-size:12px;white-space:pre-wrap;overflow-wrap:anywhere}.item-meta{color:var(--muted);font-size:10px;margin-top:4px}.drop{border:1px dashed rgba(53,199,184,.4);border-radius:12px;padding:16px;text-align:center;color:var(--dim);font-size:12px}.drop input{margin-top:10px}.presc-preview{white-space:pre-wrap;background:#071d20;border:1px solid var(--line);border-radius:10px;padding:12px;max-height:260px;overflow:auto;color:#d9e6e4;font-size:12px}.toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);z-index:100;background:#10353a;border:1px solid var(--line);border-radius:10px;padding:11px 14px;font-size:13px;opacity:0;pointer-events:none;transition:.18s}.toast.show{opacity:1}.toast.err{color:#ffb4b4;border-color:rgba(226,97,97,.5)}
+.call-full{min-height:100vh;padding:24px}.call-head{display:flex;align-items:center;justify-content:space-between;gap:12px}.call-panel{max-width:500px;margin:35px auto;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:20px}.call-panel h2{margin-top:0}.call-now{max-width:1150px;margin:25px auto;display:grid;grid-template-columns:1.7fr 1fr;gap:18px}.now-card,.history-card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:22px}.now-card{min-height:420px;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center}.now-sala{font-size:18px;color:var(--teal);font-weight:800}.now-name{font-size:clamp(38px,6vw,78px);font-weight:900;text-transform:uppercase;margin-top:14px;word-break:break-word}.history-card h3{margin-top:0}.history-item{padding:11px 0;border-bottom:1px solid var(--line)}.history-item:last-child{border:0}.history-item b{display:block}.history-item span{font-size:11px;color:var(--muted)}.overlay-audio{position:fixed;inset:0;background:var(--bg0);z-index:90;display:flex;align-items:center;justify-content:center;text-align:center;padding:24px}.overlay-audio .box{max-width:430px}.overlay-audio p{color:var(--dim);line-height:1.5}.mine{margin-top:18px}.mine h4{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.1em}.mine-item{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--line)}
+@media(max-width:980px){.grid4{grid-template-columns:repeat(2,1fr)}.quick-grid,.links{grid-template-columns:1fr}.patient-row{grid-template-columns:1fr 1fr auto}.patient-pending{grid-column:1/3}.review-grid{grid-template-columns:1fr}.call-now{grid-template-columns:1fr}.now-card{min-height:320px}}
+@media(max-width:700px){.topbar{height:auto;min-height:66px;align-items:flex-start;flex-wrap:wrap;padding:10px 12px}.brand{min-width:auto}.nav{order:3;width:100%;padding-bottom:2px}.sync{margin-left:auto}.content{padding:20px 12px 50px}.page-head{align-items:flex-start;flex-direction:column}.grid4{grid-template-columns:1fr 1fr}.patient-row{grid-template-columns:1fr}.patient-pending{grid-column:auto}.row-actions{justify-content:flex-start}.form-grid,.info-grid{grid-template-columns:1fr}.field.full{grid-column:auto}.links{grid-template-columns:1fr}.call-full{padding:14px}.now-name{font-size:44px}}
 </style>
 </head>
 <body>
-<div id="app">
-
-  <!-- ============ MODE SELECT ============ -->
-  <section id="view-select" class="select-wrap hidden">
-    <div>
-      <div class="select-eyebrow">UPA · Sistema de Chamada</div>
-      <h1 class="select-title">Chamador de Pacientes</h1>
-    </div>
-    <div class="select-cards">
-      <a class="select-card" href="#recepcao">
-        <span class="icon">📺</span>
-        <h3>Tela da Recepção</h3>
-        <p>Painel para exibir na TV da sala de espera. Anuncia por voz cada paciente chamado pelos médicos.</p>
-      </a>
-      <a class="select-card" href="#medico">
-        <span class="icon">🩺</span>
-        <h3>Painel do Médico</h3>
-        <p>Use na sala de atendimento para chamar o próximo paciente já triado.</p>
-      </a>
-    </div>
-  </section>
-
-  <!-- ============ RECEPTION ============ -->
-  <section id="view-recepcao" class="rec-wrap hidden">
-    <a href="#" class="back-link-rec">← trocar painel</a>
-    <div class="rec-header">
-      <div class="brand"><span class="dot"></span><span>UPA · Chamador de Pacientes</span></div>
-      <div class="rec-clock" id="rec-clock">--:--:--</div>
-    </div>
-    <div class="rec-body">
-      <div class="now-card">
-        <div class="now-eyebrow">Chamando agora</div>
-        <div id="now-content">
-          <div class="now-empty">Aguardando chamado…</div>
-        </div>
-        <div class="now-time" id="now-time"></div>
-      </div>
-      <div class="hist-card">
-        <div class="hist-title">Chamados anteriores</div>
-        <ul class="hist-list" id="hist-list">
-          <li class="hist-empty">Nenhum chamado ainda.</li>
-        </ul>
-      </div>
-    </div>
-
-    <div class="rec-overlay" id="rec-overlay">
-      <div class="select-eyebrow">Tela da Recepção</div>
-      <h2 class="select-title" style="font-size:clamp(22px,4vw,32px);">Ativar chamador</h2>
-      <p>Toque no botão para ativar o som e a voz de chamada. Deixe esta tela aberta na TV da recepção.</p>
-      <button class="btn-activate" id="btn-activate">🔊 Ativar painel</button>
-    </div>
-  </section>
-
-  <!-- ============ DOCTOR PANEL ============ -->
-  <section id="view-medico" class="doc-wrap hidden">
-    <div class="doc-col">
-      <div class="doc-header">
-        <h2 class="doc-title">Painel do Médico</h2>
-        <a href="#">trocar painel</a>
-      </div>
-
-      <div class="doc-card">
-        <div class="field sala">
-          <label for="input-sala">Sua sala</label>
-          <input id="input-sala" type="text" inputmode="numeric" placeholder="Ex: 4" maxlength="6">
-        </div>
-        <div class="field">
-          <label for="input-nome">Nome do paciente</label>
-          <input id="input-nome" type="text" placeholder="Nome completo" autocomplete="off">
-        </div>
-        <button class="btn-call" id="btn-chamar" disabled>🔊 Chamar paciente</button>
-        <div class="toast" id="doc-toast"></div>
-      </div>
-
-      <div>
-        <div class="mine-title">Seus últimos chamados</div>
-        <ul class="mine-list" id="mine-list">
-          <li class="mine-empty">Você ainda não chamou nenhum paciente.</li>
-        </ul>
-      </div>
-    </div>
-  </section>
-
+<div id="main-shell" class="shell">
+  <header class="topbar">
+    <div class="brand"><span class="brand-dot"></span><div><b>CRS Coophavila</b><small>Central assistencial</small></div></div>
+    <nav class="nav" id="nav">
+      <a href="#central" data-route="central">Painel</a>
+      <a href="#censo" data-route="censo">Censo</a>
+      <a href="#reavaliacoes" data-route="reavaliacoes">Reavaliações</a>
+      <a href="#prescricao" data-route="prescricao">Prescrição</a>
+      <a href="#chamador" data-route="chamador">Chamador</a>
+    </nav>
+    <div class="sync" id="sync">sincronizando…</div>
+  </header>
+  <main class="content" id="content"></main>
 </div>
+
+<section id="doctor-view" class="call-full hidden">
+  <div class="call-head"><div class="brand"><span class="brand-dot"></span><div><b>Chamador · Médico</b><small>CRS Coophavila</small></div></div><a class="btn small" href="#chamador">← voltar</a></div>
+  <div class="call-panel">
+    <h2>Chamar paciente</h2>
+    <div class="form-grid">
+      <div class="field"><label>Sala</label><input id="call-room" inputmode="numeric" placeholder="Ex: 4"></div>
+      <div class="field"><label>Paciente</label><input id="call-name" placeholder="Nome completo" autocomplete="off"></div>
+    </div>
+    <button class="btn primary" id="call-btn" style="width:100%;margin-top:14px">🔊 Chamar paciente</button>
+    <div class="mine"><h4>Seus últimos chamados</h4><div id="mine-list"></div></div>
+  </div>
+</section>
+
+<section id="reception-view" class="call-full hidden">
+  <div class="call-head"><div class="brand"><span class="brand-dot"></span><div><b>Chamador · Recepção</b><small>CRS Coophavila</small></div></div><div><span id="clock" class="mono muted"></span> <a class="btn small" href="#chamador">voltar</a></div></div>
+  <div class="call-now"><div class="now-card"><div id="now-sala" class="now-sala">AGUARDANDO CHAMADO</div><div id="now-name" class="now-name">—</div><div id="now-time" class="muted mono" style="margin-top:18px"></div></div><div class="history-card"><h3>Chamados anteriores</h3><div id="call-history"></div></div></div>
+  <div class="overlay-audio" id="audio-overlay"><div class="box"><h2>Ativar painel da recepção</h2><p>O navegador precisa de um toque inicial para liberar o áudio dos chamados.</p><button class="btn primary" id="activate-audio">Ativar painel</button></div></div>
+</section>
+
+<div class="modal" id="patient-modal"><div class="modal-card"><div class="modal-head"><div><h2 id="patient-title">Paciente</h2><div class="muted" id="patient-subtitle" style="font-size:12px;margin-top:4px"></div></div><button class="close" data-close="patient-modal">×</button></div><div class="tabs"><button class="tab active" data-tab="resumo">Resumo</button><button class="tab" data-tab="exames">Exames</button><button class="tab" data-tab="prescricoes">Prescrições</button></div><div class="modal-body"><div class="tab-pane active" id="tab-resumo"></div><div class="tab-pane" id="tab-exames"></div><div class="tab-pane" id="tab-prescricoes"></div></div></div></div>
+<div class="modal" id="sector-modal"><div class="modal-card" style="width:min(440px,100%)"><div class="modal-head"><h2>Destino no Censo</h2><button class="close" data-close="sector-modal">×</button></div><div class="modal-body"><div class="field"><label>Setor</label><select id="sector-select"><option value="emergencia">Emergência</option><option value="infantil">Enfermaria Infantil</option><option value="feminina">Enfermaria Feminina</option><option value="masculina">Enfermaria Masculina</option></select></div><div class="modal-actions"><button class="btn" data-close="sector-modal">Cancelar</button><button class="btn primary" id="sector-confirm">Confirmar</button></div></div></div></div>
+<div class="modal" id="manual-modal"><div class="modal-card" style="width:min(560px,100%)"><div class="modal-head"><h2>Adicionar ao Censo</h2><button class="close" data-close="manual-modal">×</button></div><div class="modal-body"><div class="form-grid"><div class="field full"><label>Nome do paciente</label><input id="manual-name"></div><div class="field"><label>Idade</label><input id="manual-age" inputmode="numeric"></div><div class="field"><label>Setor</label><select id="manual-sector"><option value="emergencia">Emergência</option><option value="infantil">Enfermaria Infantil</option><option value="feminina">Enfermaria Feminina</option><option value="masculina">Enfermaria Masculina</option></select></div><div class="field full"><label>Caso / resumo</label><textarea id="manual-case"></textarea></div><div class="field full"><label>Pendências</label><textarea id="manual-pending"></textarea></div></div><div class="modal-actions"><button class="btn" data-close="manual-modal">Cancelar</button><button class="btn primary" id="manual-save">Adicionar ao Censo</button></div></div></div></div>
+<div class="modal" id="text-modal"><div class="modal-card"><div class="modal-head"><h2 id="text-title">Visualização</h2><button class="close" data-close="text-modal">×</button></div><div class="modal-body"><div class="presc-preview" id="text-body"></div></div></div></div>
+<div class="toast" id="toast"></div>
 
 <script>
 (function(){
-  "use strict";
+'use strict';
+const PRESC_URL='https://plantonistae-create.github.io/prescricao/crs.html';
+const PRESC_ORIGIN='https://plantonistae-create.github.io';
+const PFX_PAT='crs-paciente:';
+const PFX_PRESC='crs-prescricao:';
+const PFX_LATEST='crs-prescricao-latest:';
+const PFX_LAB='crs-lab:';
+const CALL_PREFIX='upa-chamado:';
+const ROOM_KEY='upa-medico-sala';
+const sectors=[
+  {id:'emergencia',label:'🚨 Emergência'},
+  {id:'infantil',label:'🧒 Enfermaria Infantil'},
+  {id:'feminina',label:'👩 Enfermaria Feminina'},
+  {id:'masculina',label:'👨 Enfermaria Masculina'}
+];
+let patients=[];
+let currentPatient=null;
+let sectorAction=null;
+let syncTimer=null;
+let remoteOk=false;
+let lastCallKey=null;
+let speechQueue=[];
+let speaking=false;
+let receptionTimer=null;
 
-  var CALL_PREFIX = "upa-chamado:";
-  var SALA_KEY = "upa-medico-sala";
-  var PRUNE_AGE_MS = 12 * 60 * 60 * 1000; // apaga chamados com mais de 12h (limpeza, não afeta o plantão atual)
+function uuid(){return crypto.randomUUID?crypto.randomUUID():('p-'+Date.now()+'-'+Math.random().toString(36).slice(2));}
+function escapeHtml(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function fmt(ts){return ts?new Date(ts).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'—';}
+function toast(msg,err){const el=document.getElementById('toast');el.textContent=msg;el.className='toast show'+(err?' err':'');clearTimeout(toast._t);toast._t=setTimeout(()=>el.className='toast',2400);}
+function openModal(id){document.getElementById(id).classList.add('show');}
+function closeModal(id){document.getElementById(id).classList.remove('show');}
 
-  // ---------------- storage helpers ----------------
-  // Cada chamado é gravado em sua PRÓPRIA chave (upa-chamado:<timestamp>-<random>).
-  // Assim, dois médicos chamando ao mesmo tempo nunca se sobrescrevem: não há
-  // leitura-modificação-escrita de uma lista compartilhada, cada gravação é isolada.
-  var callCache = {};   // key -> entry
-  var sortedKeys = [];  // chaves ordenadas cronologicamente (o prefixo é o timestamp)
-
-  async function refreshCache(){
-    try{
-      var listRes = await window.storage.list(CALL_PREFIX, true);
-      var keys = (listRes && listRes.keys) || [];
-      var newKeys = keys.filter(function(k){ return !(k in callCache); });
-      if(newKeys.length){
-        await Promise.all(newKeys.map(async function(k){
-          try{
-            var r = await window.storage.get(k, true);
-            if(r && r.value) callCache[k] = JSON.parse(r.value);
-          }catch(e){ /* tenta de novo na próxima consulta */ }
-        }));
-      }
-      // remove do cache local chaves que já não existem remotamente (ex: limpeza)
-      Object.keys(callCache).forEach(function(k){
-        if(keys.indexOf(k) === -1) delete callCache[k];
-      });
-      sortedKeys = Object.keys(callCache).sort();
-      return true;
-    }catch(e){
-      return false;
-    }
+const db={
+  async get(key,shared=true){
+    if(window.storage&&typeof window.storage.get==='function'){remoteOk=true;return await window.storage.get(key,shared);}
+    remoteOk=false;return {value:localStorage.getItem(key)};
+  },
+  async set(key,value,shared=true){
+    if(window.storage&&typeof window.storage.set==='function'){remoteOk=true;return await window.storage.set(key,value,shared);}
+    remoteOk=false;localStorage.setItem(key,value);return true;
+  },
+  async del(key,shared=true){
+    if(window.storage&&typeof window.storage.delete==='function'){remoteOk=true;return await window.storage.delete(key,shared);}
+    remoteOk=false;localStorage.removeItem(key);return true;
+  },
+  async list(prefix,shared=true){
+    if(window.storage&&typeof window.storage.list==='function'){remoteOk=true;return await window.storage.list(prefix,shared);}
+    remoteOk=false;return {keys:Object.keys(localStorage).filter(k=>k.startsWith(prefix))};
   }
-
-  function getSortedLog(){
-    return sortedKeys.map(function(k){ return callCache[k]; });
+};
+async function jget(key,shared=true){try{const r=await db.get(key,shared);return r&&r.value?JSON.parse(r.value):null;}catch(_){return null;}}
+async function jset(key,obj,shared=true){return db.set(key,JSON.stringify(obj),shared);}
+function patientKey(id){return PFX_PAT+id;}
+async function savePatient(p){p.updatedAt=Date.now();await jset(patientKey(p.id),p,true);await syncPatients(false);}
+async function syncPatients(render=true){
+  try{
+    const lr=await db.list(PFX_PAT,true);const keys=(lr&&lr.keys)||[];
+    const vals=await Promise.all(keys.map(k=>jget(k,true)));
+    patients=vals.filter(Boolean).sort((a,b)=>(a.createdAt||0)-(b.createdAt||0));
+    const s=document.getElementById('sync');
+    if(remoteOk){s.textContent='● tempo real';s.className='sync ok';}else{s.textContent='modo local';s.className='sync';}
+    if(render) renderRoute();
+  }catch(e){const s=document.getElementById('sync');s.textContent='falha de sincronização';s.className='sync err';}
+}
+function activePatients(){return patients.filter(p=>p.status==='censo'||p.status==='reavaliacao');}
+function censoPatients(){return patients.filter(p=>p.status==='censo');}
+function reviewPatients(){return patients.filter(p=>p.status==='reavaliacao');}
+function routeName(){const h=(location.hash||'#central').slice(1);return ['central','censo','reavaliacoes','prescricao','chamador','medico','recepcao'].includes(h)?h:'central';}
+function renderRoute(){
+  const r=routeName();
+  document.getElementById('main-shell').classList.toggle('hidden',r==='medico'||r==='recepcao');
+  document.getElementById('doctor-view').classList.toggle('hidden',r!=='medico');
+  document.getElementById('reception-view').classList.toggle('hidden',r!=='recepcao');
+  document.querySelectorAll('#nav a').forEach(a=>a.classList.toggle('active',a.dataset.route===r));
+  if(r==='medico'){initDoctor();return;} if(r==='recepcao'){initReception();return;}
+  const c=document.getElementById('content');
+  if(r==='central') c.innerHTML=renderCentral();
+  if(r==='censo') c.innerHTML=renderCenso();
+  if(r==='reavaliacoes') c.innerHTML=renderReviews();
+  if(r==='prescricao') c.innerHTML=renderPrescriptionPage();
+  if(r==='chamador') c.innerHTML=renderCallerPage();
+  bindPage();
+}
+function head(title,sub,actions=''){return `<div class="page-head"><div><div class="eyebrow">CRS Coophavila</div><h1>${title}</h1><p>${sub}</p></div><div class="actions">${actions}</div></div>`;}
+function renderCentral(){
+  const cp=censoPatients(),rp=reviewPatients();
+  return head('Painel assistencial','Atalhos rápidos para o fluxo da unidade.',`<button class="btn primary" data-new-presc>+ Nova prescrição</button>`)+
+  `<div class="grid4"><div class="metric"><small>Pacientes no Censo</small><div class="num">${cp.length}</div></div><div class="metric"><small>Reavaliações</small><div class="num">${rp.length}</div></div><div class="metric"><small>Emergência</small><div class="num">${cp.filter(p=>p.sector==='emergencia').length}</div></div><div class="metric"><small>Total ativo</small><div class="num">${activePatients().length}</div></div></div>`+
+  `<div class="quick-grid"><div class="quick"><div>💊</div><h3>Nova prescrição</h3><p>Abra o prescritor e, ao final, envie o paciente para alta, reavaliação ou Censo.</p><button class="btn primary" data-new-presc>Abrir prescritor</button></div><div class="quick"><div>🏥</div><h3>Censo</h3><p>Pacientes alocados por setor, com prescrição vigente, exames e pendências.</p><a class="btn" href="#censo">Abrir Censo</a></div><div class="quick"><div>📢</div><h3>Chamador</h3><p>O chamador da unidade permanece no mesmo sistema e com o mesmo fluxo.</p><a class="btn" href="#chamador">Abrir Chamador</a></div></div>`;
+}
+function renderCenso(){
+  const rows=sectors.map(s=>{
+    const list=censoPatients().filter(p=>p.sector===s.id);
+    return `<section class="sector"><div class="sector-head"><div class="sector-title">${s.label}<span class="count">${list.length}</span></div></div><div class="patient-list">${list.length?list.map(patientRow).join(''):'<div class="empty">Nenhum paciente neste setor.</div>'}</div></section>`;
+  }).join('');
+  return head('Censo','Pacientes que permanecem na unidade, separados pelo setor físico.',`<button class="btn" id="manual-add">+ Adicionar manualmente</button><button class="btn primary" data-new-presc>+ Nova prescrição</button>`)+`<div class="sector-stack">${rows}</div>`;
+}
+function patientRow(p){return `<div class="patient-row"><div><div class="patient-name">${escapeHtml(p.name||'Paciente')}</div><div class="patient-meta">${p.age?escapeHtml(p.age)+' anos · ':''}${fmt(p.updatedAt)}</div></div><div class="patient-case">${escapeHtml(p.caseSummary||'Sem resumo registrado')}</div><div class="patient-pending">${escapeHtml(p.pending||'Sem pendências registradas')}</div><div class="row-actions"><button class="btn small" data-open-patient="${p.id}">Abrir</button><button class="btn small primary" data-edit-presc="${p.id}">Prescrição</button></div></div>`;}
+function renderReviews(){
+  const list=reviewPatients();
+  return head('Reavaliações','Pacientes medicados ou em investigação breve que aguardam nova avaliação.',`<button class="btn primary" data-new-presc>+ Nova prescrição</button>`)+
+  (list.length?`<div class="review-grid">${list.map(p=>`<div class="review-card"><h3>${escapeHtml(p.name)}</h3><div class="time">em reavaliação desde ${fmt(p.reviewAt||p.updatedAt)}</div><div class="case">${escapeHtml(p.caseSummary||'Sem resumo registrado')}</div><div class="review-actions"><button class="btn small" data-open-patient="${p.id}">Abrir</button><button class="btn small primary" data-edit-presc="${p.id}">Prescrição</button><button class="btn small amber" data-to-censo="${p.id}">Enviar ao Censo</button><button class="btn small blue" data-discharge="${p.id}">Alta</button></div></div>`).join('')}</div>`:'<div class="empty" style="background:var(--card);border:1px solid var(--line);border-radius:14px">Nenhum paciente aguardando reavaliação.</div>');
+}
+function renderPrescriptionPage(){return head('Prescrição','O prescritor abre integrado à Central CRS. Ao finalizar, escolha o destino do paciente.',`<button class="btn primary" data-new-presc>Abrir nova prescrição</button>`)+`<div class="links"><a class="link-card" href="#" data-new-presc><div class="link-icon">💊</div><div><h3>Nova prescrição</h3><p>Paciente novo ou atendimento que ainda não está no Censo.</p></div></a><a class="link-card" href="#censo"><div class="link-icon">🏥</div><div><h3>Prescrição vigente</h3><p>Abra o paciente no Censo e edite a última prescrição salva.</p></div></a><a class="link-card" href="#reavaliacoes"><div class="link-icon">🔄</div><div><h3>Paciente em reavaliação</h3><p>Reabra a prescrição do paciente e atualize a conduta sem redigitar do zero.</p></div></a></div>`;}
+function renderCallerPage(){return head('Chamador','Acesso ao painel do médico e à tela da recepção.',``)+`<div class="links"><a class="link-card" href="#medico"><div class="link-icon">🩺</div><div><h3>Painel do médico</h3><p>Chame o paciente e repita chamados anteriores.</p></div></a><a class="link-card" href="#recepcao"><div class="link-icon">📺</div><div><h3>Tela da recepção</h3><p>Exibição em tela cheia com anúncio por voz.</p></div></a><a class="link-card" href="https://chamador-crs-coophavila.crs-coophavila.workers.dev/" target="_blank" rel="noopener"><div class="link-icon">↗️</div><div><h3>Abrir em nova aba</h3><p>Útil para manter o Censo aberto enquanto usa o Chamador.</p></div></a></div>`;}
+function bindPage(){
+  document.querySelectorAll('[data-new-presc]').forEach(b=>b.onclick=e=>{e.preventDefault();openPrescription();});
+  document.querySelectorAll('[data-edit-presc]').forEach(b=>b.onclick=()=>openPrescription(b.dataset.editPresc));
+  document.querySelectorAll('[data-open-patient]').forEach(b=>b.onclick=()=>showPatient(b.dataset.openPatient));
+  document.querySelectorAll('[data-to-censo]').forEach(b=>b.onclick=()=>askSector(b.dataset.toCenso,'move'));
+  document.querySelectorAll('[data-discharge]').forEach(b=>b.onclick=()=>dischargePatient(b.dataset.discharge));
+  const ma=document.getElementById('manual-add');if(ma)ma.onclick=()=>openModal('manual-modal');
+}
+function openPrescription(patientId){
+  const id=patientId||uuid();
+  const u=new URL(PRESC_URL);u.searchParams.set('patientId',id);u.searchParams.set('returnOrigin',location.origin);
+  const w=window.open(u.toString(),'crs-prescricao-'+id);
+  if(!w) toast('O navegador bloqueou a nova aba. Libere pop-ups para o prescritor.',true);
+}
+async function getLatestPrescription(id){
+  const r=await db.get(PFX_LATEST+id,true);if(!r||!r.value)return null;
+  return jget(r.value,true);
+}
+async function handlePrescriptionSaved(data){
+  const id=data.patientId||uuid();const now=Date.now();
+  const existing=patients.find(p=>p.id===id)||{};
+  const p={...existing,id,name:data.patient?.name||existing.name||'Paciente',age:data.patient?.age||existing.age||'',sex:data.patient?.sex||existing.sex||'',createdAt:existing.createdAt||now,updatedAt:now,lastPrescriptionAt:now};
+  const key=PFX_PRESC+id+':'+now+'-'+Math.random().toString(36).slice(2,7);
+  const rec={key,patientId:id,createdAt:now,snapshot:data.snapshot||{},previewText:data.snapshot?.previewText||'',destination:data.destination||'salvar'};
+  await jset(key,rec,true);await db.set(PFX_LATEST+id,key,true);
+  if(data.destination==='reavaliacao'){p.status='reavaliacao';p.reviewAt=now;p.sector='';}
+  else if(data.destination==='censo'){p.status='censo';p.sector=sectors.some(s=>s.id===data.sector)?data.sector:'emergencia';p.censusAt=p.censusAt||now;}
+  else if(data.destination==='alta'){p.status='alta';p.dischargeAt=now;}
+  else if(!p.status){p.status='prescricao';}
+  await jset(patientKey(id),p,true);await syncPatients(true);
+  toast(data.destination==='censo'?'Paciente enviado ao Censo.':data.destination==='reavaliacao'?'Paciente enviado para Reavaliação.':data.destination==='alta'?'Prescrição salva e atendimento finalizado.':'Prescrição salva.');
+}
+window.addEventListener('message',async e=>{
+  if(e.origin!==PRESC_ORIGIN||!e.data)return;
+  if(e.data.type==='CRS_PRESCRIPTION_READY'){
+    const p=patients.find(x=>x.id===e.data.patientId)||null;const latest=await getLatestPrescription(e.data.patientId);
+    try{e.source.postMessage({type:'CRS_PRESCRIPTION_CONTEXT',context:{patient:p?{name:p.name,age:p.age,sex:p.sex}:null},snapshot:latest?.snapshot||null},e.origin);}catch(_){}
   }
+  if(e.data.type==='CRS_PRESCRIPTION_SAVED') await handlePrescriptionSaved(e.data);
+});
+async function showPatient(id){
+  currentPatient=patients.find(p=>p.id===id);if(!currentPatient)return;
+  document.getElementById('patient-title').textContent=currentPatient.name||'Paciente';
+  document.getElementById('patient-subtitle').textContent=(currentPatient.age?currentPatient.age+' anos · ':'')+(currentPatient.status==='censo'?(sectors.find(s=>s.id===currentPatient.sector)?.label||'Censo'):'Reavaliação');
+  document.querySelectorAll('#patient-modal .tab').forEach((t,i)=>t.classList.toggle('active',i===0));document.querySelectorAll('#patient-modal .tab-pane').forEach((p,i)=>p.classList.toggle('active',i===0));
+  renderPatientSummary();await renderLabs();await renderPrescriptions();openModal('patient-modal');
+}
+function renderPatientSummary(){
+  const p=currentPatient;if(!p)return;
+  document.getElementById('tab-resumo').innerHTML=`<div class="form-grid"><div class="field full"><label>Caso / resumo</label><textarea id="edit-case">${escapeHtml(p.caseSummary||'')}</textarea></div><div class="field full"><label>Pendências</label><textarea id="edit-pending">${escapeHtml(p.pending||'')}</textarea></div>${p.status==='censo'?`<div class="field"><label>Setor atual</label><select id="edit-sector">${sectors.map(s=>`<option value="${s.id}" ${s.id===p.sector?'selected':''}>${s.label.replace(/^[^ ]+ /,'')}</option>`).join('')}</select></div>`:''}</div><div class="modal-actions"><button class="btn primary" id="save-summary">Salvar alterações</button><button class="btn" id="modal-presc">Abrir prescrição</button>${p.status==='censo'?'<button class="btn blue" id="modal-discharge">Alta / retirar do Censo</button>':'<button class="btn amber" id="modal-to-censo">Enviar ao Censo</button>'}</div>`;
+  document.getElementById('save-summary').onclick=async()=>{p.caseSummary=document.getElementById('edit-case').value.trim();p.pending=document.getElementById('edit-pending').value.trim();if(p.status==='censo')p.sector=document.getElementById('edit-sector').value;await savePatient(p);currentPatient=patients.find(x=>x.id===p.id);toast('Paciente atualizado.');};
+  document.getElementById('modal-presc').onclick=()=>openPrescription(p.id);
+  const d=document.getElementById('modal-discharge');if(d)d.onclick=()=>dischargePatient(p.id);
+  const tc=document.getElementById('modal-to-censo');if(tc)tc.onclick=()=>askSector(p.id,'move');
+}
+async function labRecords(id){const lr=await db.list(PFX_LAB+id+':',true);const keys=(lr&&lr.keys)||[];const vals=await Promise.all(keys.map(k=>jget(k,true)));return vals.filter(Boolean).sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));}
+async function renderLabs(){
+  const p=currentPatient;if(!p)return;const labs=await labRecords(p.id);
+  document.getElementById('tab-exames').innerHTML=`<div class="info-grid"><div class="panel"><h4>Adicionar manualmente</h4><div class="field"><label>Exame</label><input id="lab-title" placeholder="Ex: Hemograma"></div><div class="field" style="margin-top:10px"><label>Resultado / resumo</label><textarea id="lab-text" placeholder="Ex: Hb 12,1 · Leuco 14.500 · Plaq 210.000"></textarea></div><button class="btn primary small" id="lab-manual-save" style="margin-top:10px">Salvar exame</button></div><div class="panel"><h4>Anexar PDF ou imagem</h4><div class="drop">PDF ou imagem do exame<br><input type="file" id="lab-file" accept="application/pdf,image/*"><div class="muted" style="margin-top:8px">Imagens são compactadas automaticamente. PDFs: até 8 MB.</div></div></div></div><div style="height:14px"></div><div class="panel"><h4>Exames anexados</h4><div class="list-plain">${labs.length?labs.map(l=>`<div class="item"><div class="item-main"><b>${escapeHtml(l.title||'Exame')}</b><div class="item-meta">${fmt(l.createdAt)}${l.fileName?' · '+escapeHtml(l.fileName):''}</div>${l.text?`<p>${escapeHtml(l.text)}</p>`:''}</div><div class="row-actions">${l.dataUrl?`<button class="btn small" data-open-lab="${l.key}">Abrir</button>`:''}<button class="btn small danger" data-del-lab="${l.key}">Excluir</button></div></div>`).join(''):'<div class="empty">Nenhum exame anexado.</div>'}</div></div>`;
+  document.getElementById('lab-manual-save').onclick=async()=>{const title=document.getElementById('lab-title').value.trim()||'Exame';const text=document.getElementById('lab-text').value.trim();if(!text)return toast('Informe o resultado do exame.',true);const key=PFX_LAB+p.id+':'+Date.now()+'-'+Math.random().toString(36).slice(2,6);await jset(key,{key,patientId:p.id,type:'manual',title,text,createdAt:Date.now()},true);await renderLabs();toast('Exame salvo.');};
+  document.getElementById('lab-file').onchange=async e=>{const f=e.target.files?.[0];if(!f)return;try{const dataUrl=await prepareFile(f);const key=PFX_LAB+p.id+':'+Date.now()+'-'+Math.random().toString(36).slice(2,6);await jset(key,{key,patientId:p.id,type:'file',title:f.name.replace(/\.[^.]+$/,''),fileName:f.name,mime:f.type,dataUrl,createdAt:Date.now()},true);await renderLabs();toast('Exame anexado.');}catch(err){toast(err.message||'Falha ao anexar exame.',true);}};
+  document.querySelectorAll('[data-open-lab]').forEach(b=>b.onclick=async()=>{const l=await jget(b.dataset.openLab,true);if(l?.dataUrl)window.open(l.dataUrl,'_blank');});
+  document.querySelectorAll('[data-del-lab]').forEach(b=>b.onclick=async()=>{if(!confirm('Excluir este exame anexado?'))return;await db.del(b.dataset.delLab,true);await renderLabs();toast('Exame excluído.');});
+}
+function readDataUrl(f){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=()=>rej(new Error('Falha ao ler arquivo.'));r.readAsDataURL(f);});}
+async function prepareFile(f){if(f.type==='application/pdf'){if(f.size>8*1024*1024)throw new Error('PDF acima de 8 MB.');return readDataUrl(f);}if(f.type.startsWith('image/')){const src=await readDataUrl(f);return new Promise((res,rej)=>{const img=new Image();img.onload=()=>{let w=img.width,h=img.height,max=1800;if(w>max||h>max){const k=Math.min(max/w,max/h);w=Math.round(w*k);h=Math.round(h*k);}const c=document.createElement('canvas');c.width=w;c.height=h;c.getContext('2d').drawImage(img,0,0,w,h);res(c.toDataURL('image/jpeg',.82));};img.onerror=()=>rej(new Error('Imagem inválida.'));img.src=src;});}throw new Error('Use PDF ou imagem.');}
+async function prescriptionRecords(id){const lr=await db.list(PFX_PRESC+id+':',true);const keys=(lr&&lr.keys)||[];const vals=await Promise.all(keys.map(k=>jget(k,true)));return vals.filter(Boolean).sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));}
+async function renderPrescriptions(){
+  const p=currentPatient;if(!p)return;const ps=await prescriptionRecords(p.id);
+  document.getElementById('tab-prescricoes').innerHTML=`<div class="modal-actions" style="margin-top:0;margin-bottom:12px"><button class="btn primary" id="presc-edit-current">${ps.length?'Editar prescrição vigente':'Criar prescrição'}</button></div><div class="list-plain">${ps.length?ps.map((r,i)=>`<div class="item"><div class="item-main"><b>${i===0?'Prescrição vigente':'Prescrição anterior'}</b><div class="item-meta">${fmt(r.createdAt)}</div><p>${escapeHtml((r.previewText||'Prescrição salva').slice(0,180))}${(r.previewText||'').length>180?'…':''}</p></div><button class="btn small" data-view-presc="${r.key}">Visualizar</button></div>`).join(''):'<div class="empty">Nenhuma prescrição salva para este paciente.</div>'}</div>`;
+  document.getElementById('presc-edit-current').onclick=()=>openPrescription(p.id);
+  document.querySelectorAll('[data-view-presc]').forEach(b=>b.onclick=async()=>{const r=await jget(b.dataset.viewPresc,true);document.getElementById('text-title').textContent='Prescrição · '+fmt(r?.createdAt);document.getElementById('text-body').textContent=r?.previewText||'Sem pré-visualização textual.';openModal('text-modal');});
+}
+async function dischargePatient(id){const p=patients.find(x=>x.id===id);if(!p)return;if(!confirm('Finalizar este atendimento e retirar o paciente das filas ativas?'))return;p.status='alta';p.dischargeAt=Date.now();await savePatient(p);closeModal('patient-modal');toast('Paciente retirado das filas ativas.');}
+function askSector(id,mode){sectorAction={id,mode};openModal('sector-modal');}
+document.getElementById('sector-confirm').onclick=async()=>{if(!sectorAction)return;const p=patients.find(x=>x.id===sectorAction.id);if(!p)return; p.status='censo';p.sector=document.getElementById('sector-select').value;p.censusAt=p.censusAt||Date.now();await savePatient(p);sectorAction=null;closeModal('sector-modal');closeModal('patient-modal');toast('Paciente enviado ao Censo.');};
+document.getElementById('manual-save').onclick=async()=>{const name=document.getElementById('manual-name').value.trim();if(!name)return toast('Informe o nome do paciente.',true);const now=Date.now();const p={id:uuid(),name,age:document.getElementById('manual-age').value.trim(),caseSummary:document.getElementById('manual-case').value.trim(),pending:document.getElementById('manual-pending').value.trim(),status:'censo',sector:document.getElementById('manual-sector').value,createdAt:now,updatedAt:now,censusAt:now};await jset(patientKey(p.id),p,true);['manual-name','manual-age','manual-case','manual-pending'].forEach(id=>document.getElementById(id).value='');closeModal('manual-modal');await syncPatients(true);toast('Paciente adicionado ao Censo.');};
 
-  async function appendCall(nome, sala){
-    var key = CALL_PREFIX + Date.now() + "-" + Math.random().toString(36).slice(2,8);
-    var entry = { key: key, nome: nome, sala: sala, ts: Date.now() };
-    await window.storage.set(key, JSON.stringify(entry), true);
-    callCache[key] = entry;
-    sortedKeys = Object.keys(callCache).sort();
-    return entry;
-  }
+document.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>closeModal(b.dataset.close));
+document.querySelectorAll('#patient-modal .tab').forEach(t=>t.onclick=()=>{document.querySelectorAll('#patient-modal .tab').forEach(x=>x.classList.toggle('active',x===t));document.querySelectorAll('#patient-modal .tab-pane').forEach(p=>p.classList.toggle('active',p.id==='tab-'+t.dataset.tab));});
 
-  async function pruneOld(){
-    var now = Date.now();
-    var toDelete = Object.keys(callCache).filter(function(k){
-      return (now - callCache[k].ts) > PRUNE_AGE_MS;
-    });
-    for(var i = 0; i < toDelete.length; i++){
-      try{
-        await window.storage.delete(toDelete[i], true);
-        delete callCache[toDelete[i]];
-      }catch(e){ /* tenta de novo na próxima limpeza */ }
-    }
-    sortedKeys = Object.keys(callCache).sort();
-  }
+// Chamador preservado
+async function callLog(){const lr=await db.list(CALL_PREFIX,true);const keys=((lr&&lr.keys)||[]).sort();const vals=await Promise.all(keys.map(k=>jget(k,true)));return vals.filter(Boolean).sort((a,b)=>(a.ts||0)-(b.ts||0));}
+async function appendCall(nome,sala){const key=CALL_PREFIX+Date.now()+'-'+Math.random().toString(36).slice(2,8);const e={key,nome,sala,ts:Date.now()};await jset(key,e,true);return e;}
+let doctorInit=false;
+function initDoctor(){if(doctorInit){renderMine();return;}doctorInit=true;const room=document.getElementById('call-room'),name=document.getElementById('call-name');db.get(ROOM_KEY,false).then(r=>{if(r?.value){room.value=r.value;renderMine();}});room.onchange=()=>{db.set(ROOM_KEY,room.value.trim(),false);renderMine();};name.onkeydown=e=>{if(e.key==='Enter')doCall();};document.getElementById('call-btn').onclick=()=>doCall();renderMine();setInterval(()=>{if(routeName()==='medico')renderMine();},5000);}
+async function doCall(nameOverride){const room=document.getElementById('call-room').value.trim(),nameEl=document.getElementById('call-name'),nome=nameOverride||nameEl.value.trim();if(!room||!nome)return toast('Informe sala e paciente.',true);try{await appendCall(nome,room);if(!nameOverride){nameEl.value='';nameEl.focus();}toast('Chamado enviado.');renderMine();}catch(_){toast('Falha ao chamar paciente.',true);}}
+async function renderMine(){const room=document.getElementById('call-room').value.trim();const log=await callLog();const mine=log.filter(e=>room&&String(e.sala)===room).reverse().slice(0,6);document.getElementById('mine-list').innerHTML=mine.length?mine.map(e=>`<div class="mine-item"><div><b>${escapeHtml(e.nome)}</b><div class="muted mono" style="font-size:10px">${fmt(e.ts)}</div></div><button class="btn small" data-recall="${escapeHtml(e.nome)}">🔁 Repetir</button></div>`).join(''):'<div class="muted" style="font-size:12px">Nenhum chamado desta sala.</div>';document.querySelectorAll('[data-recall]').forEach(b=>b.onclick=()=>doCall(b.dataset.recall));}
+let receptionInit=false;
+function initReception(){document.getElementById('clock').textContent=new Date().toLocaleTimeString('pt-BR');if(receptionInit)return;receptionInit=true;setInterval(()=>document.getElementById('clock').textContent=new Date().toLocaleTimeString('pt-BR'),1000);document.getElementById('activate-audio').onclick=()=>{try{const C=window.AudioContext||window.webkitAudioContext;if(C){window.__crsAudio=window.__crsAudio||new C();if(window.__crsAudio.state==='suspended')window.__crsAudio.resume();}}catch(_){}document.getElementById('audio-overlay').classList.add('hidden');pollReception();receptionTimer=setInterval(()=>{if(routeName()==='recepcao')pollReception();},2200);};}
+async function pollReception(){const log=await callLog();if(!log.length){renderCall(null,[]);return;}const last=log[log.length-1];renderCall(last,log.slice(0,-1).reverse().slice(0,6));if(lastCallKey===null){lastCallKey=last.key;return;}if(last.key!==lastCallKey){const idx=log.findIndex(x=>x.key===lastCallKey);const news=idx<0?[last]:log.slice(idx+1);speechQueue.push(...news);lastCallKey=last.key;processSpeech();}}
+function renderCall(last,hist){document.getElementById('now-sala').textContent=last?'SALA '+last.sala:'AGUARDANDO CHAMADO';document.getElementById('now-name').textContent=last?last.nome:'—';document.getElementById('now-time').textContent=last?fmt(last.ts):'';document.getElementById('call-history').innerHTML=hist.length?hist.map(e=>`<div class="history-item"><b>${escapeHtml(e.nome)}</b><span>Sala ${escapeHtml(e.sala)} · ${fmt(e.ts)}</span></div>`).join(''):'<div class="muted">Nenhum chamado anterior.</div>';}
+function processSpeech(){if(speaking||!speechQueue.length)return;speaking=true;const e=speechQueue.shift();beep();setTimeout(()=>speak(`Paciente ${e.nome}. Dirija-se à sala ${e.sala}. Repetindo: sala ${e.sala}.`,()=>{speaking=false;processSpeech();}),420);}
+function beep(){try{const C=window.AudioContext||window.webkitAudioContext;window.__crsAudio=window.__crsAudio||new C();const ctx=window.__crsAudio,t=ctx.currentTime;[880,1318].forEach((f,i)=>{const o=ctx.createOscillator(),g=ctx.createGain();o.frequency.value=f;g.gain.setValueAtTime(.0001,t+i*.15);g.gain.exponentialRampToValueAtTime(.2,t+i*.15+.02);g.gain.exponentialRampToValueAtTime(.0001,t+i*.15+.14);o.connect(g).connect(ctx.destination);o.start(t+i*.15);o.stop(t+i*.15+.16);});}catch(_){}}
+function speak(text,done){if(!('speechSynthesis'in window)){done();return;}const u=new SpeechSynthesisUtterance(text);u.lang='pt-BR';u.rate=.95;u.onend=done;u.onerror=done;speechSynthesis.speak(u);}
 
-  async function getSala(){
-    try{
-      var res = await window.storage.get(SALA_KEY, false);
-      return res && res.value ? res.value : "";
-    }catch(e){ return ""; }
-  }
-
-  async function saveSala(v){
-    try{ await window.storage.set(SALA_KEY, v, false); }catch(e){}
-  }
-
-  // ---------------- routing ----------------
-  var views = {
-    select: document.getElementById("view-select"),
-    recepcao: document.getElementById("view-recepcao"),
-    medico: document.getElementById("view-medico")
-  };
-
-  function route(){
-    var hash = (location.hash || "").replace("#","");
-    var mode = (hash === "recepcao" || hash === "medico") ? hash : "select";
-    Object.keys(views).forEach(function(k){
-      views[k].classList.toggle("hidden", k !== mode);
-    });
-    if(mode === "recepcao") initReception();
-    if(mode === "medico") initMedico();
-  }
-  window.addEventListener("hashchange", route);
-
-  // ============================================================
-  // RECEPTION VIEW
-  // ============================================================
-  var recInitialized = false;
-  var recPollTimer = null;
-  var lastSeenKey = null;
-  var speechQueue = [];
-  var isSpeaking = false;
-  var ptVoice = null;
-
-  function pickVoice(){
-    if(!("speechSynthesis" in window)) return;
-    var voices = window.speechSynthesis.getVoices();
-    ptVoice = voices.find(function(v){ return v.lang && v.lang.toLowerCase().indexOf("pt-br") === 0; })
-           || voices.find(function(v){ return v.lang && v.lang.toLowerCase().indexOf("pt") === 0; })
-           || null;
-  }
-  if("speechSynthesis" in window){
-    window.speechSynthesis.onvoiceschanged = pickVoice;
-    pickVoice();
-  }
-
-  function beep(){
-    try{
-      var ctx = window.__upaAudioCtx || (window.__upaAudioCtx = new (window.AudioContext || window.webkitAudioContext)());
-      var t0 = ctx.currentTime;
-      [880, 1318.5].forEach(function(freq, i){
-        var osc = ctx.createOscillator();
-        var gain = ctx.createGain();
-        osc.type = "sine";
-        osc.frequency.value = freq;
-        gain.gain.setValueAtTime(0.0001, t0 + i*0.16);
-        gain.gain.exponentialRampToValueAtTime(0.22, t0 + i*0.16 + 0.02);
-        gain.gain.exponentialRampToValueAtTime(0.0001, t0 + i*0.16 + 0.16);
-        osc.connect(gain).connect(ctx.destination);
-        osc.start(t0 + i*0.16);
-        osc.stop(t0 + i*0.16 + 0.18);
-      });
-    }catch(e){}
-  }
-
-  function speakText(text, onend){
-    if(!("speechSynthesis" in window)){ if(onend) onend(); return; }
-    var utter = new SpeechSynthesisUtterance(text);
-    utter.lang = "pt-BR";
-    if(ptVoice) utter.voice = ptVoice;
-    utter.rate = 0.95;
-    utter.pitch = 1;
-    utter.onend = function(){ if(onend) onend(); };
-    utter.onerror = function(){ if(onend) onend(); };
-    window.speechSynthesis.speak(utter);
-  }
-
-  function processSpeechQueue(){
-    if(isSpeaking || speechQueue.length === 0) return;
-    isSpeaking = true;
-    var entry = speechQueue.shift();
-    beep();
-    setTimeout(function(){
-      var text = "Paciente " + entry.nome + ". Dirija-se à sala " + entry.sala + ". Repetindo: sala " + entry.sala + ".";
-      speakText(text, function(){
-        isSpeaking = false;
-        processSpeechQueue();
-      });
-    }, 500);
-  }
-
-  function renderNow(entry){
-    var content = document.getElementById("now-content");
-    var timeEl = document.getElementById("now-time");
-    if(!entry){
-      content.innerHTML = '<div class="now-empty">Aguardando chamado…</div>';
-      timeEl.textContent = "";
-      return;
-    }
-    var letters = entry.nome.split("").map(function(ch, i){
-      var safe = ch === " " ? "&nbsp;" : ch;
-      return '<span class="letter" style="animation-delay:' + (i*35) + 'ms">' + safe + '</span>';
-    }).join("");
-    content.innerHTML =
-      '<div class="now-sala">SALA <b>' + entry.sala + '</b></div>' +
-      '<div class="now-name">' + letters + '</div>';
-    timeEl.textContent = new Date(entry.ts).toLocaleTimeString("pt-BR");
-  }
-
-  function renderHistory(log){
-    var list = document.getElementById("hist-list");
-    var items = log.slice().reverse().slice(1, 7); // exclude the current one, next 6
-    if(items.length === 0){
-      list.innerHTML = '<li class="hist-empty">Nenhum outro chamado ainda.</li>';
-      return;
-    }
-    list.innerHTML = items.map(function(e){
-      return '<li class="hist-item">' +
-        '<span class="hist-name">' + escapeHtml(e.nome) + '</span>' +
-        '<span class="hist-meta"><span class="hist-sala mono">SALA ' + escapeHtml(String(e.sala)) + '</span>' +
-        '<span class="hist-time">' + new Date(e.ts).toLocaleTimeString("pt-BR", {hour:"2-digit", minute:"2-digit"}) + '</span></span>' +
-      '</li>';
-    }).join("");
-  }
-
-  function escapeHtml(s){
-    return String(s).replace(/[&<>"']/g, function(c){
-      return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c];
-    });
-  }
-
-  async function pollReception(){
-    var log = await getLog();
-    if(log.length === 0){
-      renderNow(null);
-      renderHistory([]);
-      return;
-    }
-    var last = log[log.length - 1];
-    renderNow(last);
-    renderHistory(log);
-
-    if(lastSeenId === null){
-      // first poll after activation: don't replay old history, just show latest silently
-      lastSeenId = last.id;
-      return;
-    }
-    if(last.id !== lastSeenId){
-      var lastIdx = log.findIndex(function(e){ return e.id === lastSeenId; });
-      var newOnes = lastIdx === -1 ? [last] : log.slice(lastIdx + 1);
-      newOnes.forEach(function(e){ speechQueue.push(e); });
-      processSpeechQueue();
-      lastSeenId = last.id;
-    }
-  }
-
-  function tickClock(){
-    var el = document.getElementById("rec-clock");
-    if(el) el.textContent = new Date().toLocaleTimeString("pt-BR");
-  }
-
-  function initReception(){
-    if(recInitialized) return;
-    recInitialized = true;
-    tickClock();
-    setInterval(tickClock, 1000);
-
-    document.getElementById("btn-activate").addEventListener("click", function(){
-      // user-gesture unlock for audio + speech
-      try{
-        var ctx = window.__upaAudioCtx || (window.__upaAudioCtx = new (window.AudioContext || window.webkitAudioContext)());
-        if(ctx.state === "suspended") ctx.resume();
-      }catch(e){}
-      if("speechSynthesis" in window){
-        var warm = new SpeechSynthesisUtterance(" ");
-        window.speechSynthesis.speak(warm);
-      }
-      document.getElementById("rec-overlay").classList.add("hidden");
-      pollReception();
-      recPollTimer = setInterval(pollReception, 2500);
-    });
-  }
-
-  // ============================================================
-  // DOCTOR VIEW
-  // ============================================================
-  var docInitialized = false;
-
-  function showToast(msg, isErr){
-    var t = document.getElementById("doc-toast");
-    t.textContent = msg;
-    t.classList.remove("err");
-    if(isErr) t.classList.add("err");
-    t.classList.add("show");
-    setTimeout(function(){ t.classList.remove("show"); }, 2200);
-  }
-
-  async function renderMine(){
-    var salaInput = document.getElementById("input-sala");
-    var sala = salaInput.value.trim();
-    var list = document.getElementById("mine-list");
-    var log = await getLog();
-    var mine = log.filter(function(e){ return sala && String(e.sala) === sala; }).slice().reverse().slice(0, 6);
-    if(mine.length === 0){
-      list.innerHTML = '<li class="mine-empty">Você ainda não chamou nenhum paciente.</li>';
-      return;
-    }
-    list.innerHTML = mine.map(function(e){
-      return '<li class="mine-item">' +
-        '<div class="mine-info"><div class="name">' + escapeHtml(e.nome) + '</div>' +
-        '<div class="time">' + new Date(e.ts).toLocaleTimeString("pt-BR", {hour:"2-digit", minute:"2-digit"}) + '</div></div>' +
-        '<button class="btn-recall" data-nome="' + escapeHtml(e.nome) + '">🔁 Chamar de novo</button>' +
-      '</li>';
-    }).join("");
-
-    Array.prototype.forEach.call(list.querySelectorAll(".btn-recall"), function(btn){
-      btn.addEventListener("click", function(){
-        doCall(btn.getAttribute("data-nome"));
-      });
-    });
-  }
-
-  function updateButtonState(){
-    var sala = document.getElementById("input-sala").value.trim();
-    var nome = document.getElementById("input-nome").value.trim();
-    document.getElementById("btn-chamar").disabled = !(sala && nome);
-  }
-
-  async function doCall(nomeOverride){
-    var salaInput = document.getElementById("input-sala");
-    var nomeInput = document.getElementById("input-nome");
-    var sala = salaInput.value.trim();
-    var nome = (nomeOverride !== undefined ? nomeOverride : nomeInput.value.trim());
-    if(!sala || !nome) return;
-    var btn = document.getElementById("btn-chamar");
-    btn.disabled = true;
-    try{
-      await appendCall(nome, sala);
-      showToast("Chamado enviado — " + nome, false);
-      if(nomeOverride === undefined){
-        nomeInput.value = "";
-        nomeInput.focus();
-      }
-      renderMine();
-    }catch(e){
-      showToast("Falha ao enviar. Tente novamente.", true);
-    }
-    updateButtonState();
-  }
-
-  function initMedico(){
-    if(docInitialized) return;
-    docInitialized = true;
-
-    var salaInput = document.getElementById("input-sala");
-    var nomeInput = document.getElementById("input-nome");
-
-    getSala().then(function(v){
-      if(v){ salaInput.value = v; renderMine(); }
-    });
-
-    salaInput.addEventListener("input", function(){
-      updateButtonState();
-    });
-    salaInput.addEventListener("change", function(){
-      saveSala(salaInput.value.trim());
-      renderMine();
-    });
-    nomeInput.addEventListener("input", updateButtonState);
-    nomeInput.addEventListener("keydown", function(e){
-      if(e.key === "Enter") doCall();
-    });
-
-    document.getElementById("btn-chamar").addEventListener("click", function(){ doCall(); });
-
-    setInterval(renderMine, 6000);
-  }
-
-  route();
+window.addEventListener('hashchange',()=>{if(routeName()!=='recepcao'&&receptionTimer){clearInterval(receptionTimer);receptionTimer=null;}renderRoute();});
+setInterval(()=>syncPatients(false),3000);
+syncPatients(false).then(renderRoute);
 })();
 </script>
 </body>
