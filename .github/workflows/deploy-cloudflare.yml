@@ -37,7 +37,6 @@ jobs:
           set -euo pipefail
           BASE='https://chamador-crs-coophavila.crs-coophavila.workers.dev'
 
-          # Allow a short propagation window after the deploy.
           for attempt in 1 2 3 4 5; do
             if curl --fail --silent --show-error --max-time 20 "$BASE/api/health" -o /tmp/health.json; then
               break
@@ -57,6 +56,12 @@ jobs:
           grep -q 'Reavaliações' /tmp/index.html
           grep -q 'Prescrição' /tmp/index.html
           grep -q 'Chamador' /tmp/index.html
+          grep -q 'prescription-bridge.js' /tmp/index.html
+
+          curl --fail --silent --show-error --max-time 20 "$BASE/prescription-bridge.js" -o /tmp/prescription-bridge.js
+          grep -q 'CRS_PRESCRIPTION_READY_V2' /tmp/prescription-bridge.js
+          grep -q 'CRS_PRESCRIPTION_SAVE_V2' /tmp/prescription-bridge.js
+          grep -q 'CRS_PRESCRIPTION_SAVE_RESULT' /tmp/prescription-bridge.js
 
           status=$(curl --silent --output /tmp/session.json --write-out '%{http_code}' --max-time 20 "$BASE/api/auth/session")
           test "$status" = '401'
