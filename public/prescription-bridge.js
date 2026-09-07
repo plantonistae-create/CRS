@@ -16,6 +16,15 @@
       .slice(0, 12000);
   }
 
+  function sanitizePrintText(value) {
+    return String(value || '')
+      .replace(/\r\n?/g, '\n')
+      .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F\u202A-\u202E\u2066-\u2069]/g, '')
+      .replace(/\t/g, '    ')
+      .trim()
+      .slice(0, 12000);
+  }
+
   function sanitizePending(value) {
     return String(value || '')
       .replace(/[\u0000-\u001F\u007F\u202A-\u202E\u2066-\u2069]+/g, ' ')
@@ -75,7 +84,8 @@
       const sector = destination === 'censo' && allowedSectors.has(message.sector) ? message.sector : '';
       const pending = sanitizePending(message.pending);
       const rawSnapshot = message.snapshot && typeof message.snapshot === 'object' ? message.snapshot : {};
-      const snapshot = {...rawSnapshot, previewText:sanitizePreview(rawSnapshot.previewText), pending};
+      const formattedText = sanitizePrintText(rawSnapshot.printText || rawSnapshot.previewText);
+      const snapshot = {...rawSnapshot, printText:formattedText, previewText:sanitizePreview(rawSnapshot.previewText), pending};
 
       if (!patientId) throw new Error('Paciente não identificado.');
       if (!patient.name) throw new Error('Informe o nome do paciente antes de salvar.');
