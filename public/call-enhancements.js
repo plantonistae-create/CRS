@@ -4,6 +4,7 @@
   let callsState = { active: [] };
   let socket = null;
   let reconnectTimer = null;
+  let decorateQueued = false;
 
   const ordinalWord = n => ({1:'Primeira',2:'Segunda',3:'Terceira',4:'Quarta',5:'Quinta'}[Number(n)] || `${Number(n) || 1}ª`);
   const ordinalShort = n => `${Math.max(1, Number(n) || 1)}ª chamada`;
@@ -29,11 +30,21 @@
     return 'call-1';
   }
 
-  function makeBadge(count) {
-    const span = document.createElement('span');
-    span.className = `call-count-badge ${badgeClass(count)}`;
-    span.textContent = ordinalShort(count);
-    return span;
+  function ensureBadge(parent, count, beforeNode = null) {
+    if (!parent) return;
+    let badge = parent.querySelector(':scope > .call-count-badge');
+    if (!badge) {
+      badge = document.createElement('span');
+      badge.className = `call-count-badge ${badgeClass(count)}`;
+      badge.textContent = ordinalShort(count);
+      if (beforeNode) parent.insertBefore(badge, beforeNode);
+      else parent.appendChild(badge);
+      return;
+    }
+    const wantedText = ordinalShort(count);
+    const wantedClass = `call-count-badge ${badgeClass(count)}`;
+    if (badge.textContent !== wantedText) badge.textContent = wantedText;
+    if (badge.className !== wantedClass) badge.className = wantedClass;
   }
 
   function decorateCallList() {
@@ -43,33 +54,29 @@
       const call = active[index];
       if (!call) return;
       const top = item.querySelector('.call-item-top > div:first-child') || item.querySelector('.call-item-top');
-      if (!top) return;
-      let badge = top.querySelector('.call-count-badge');
-      if (!badge) { badge = makeBadge(call.callCount); top.appendChild(badge); }
-      badge.textContent = ordinalShort(call.callCount);
-      badge.className = `call-count-badge ${badgeClass(call.callCount)}`;
+      ensureBadge(top, call.callCount);
     });
   }
 
   function decorateCurrentCall() {
     const call = callsState?.active?.[0];
-    const cards = [...document.querySelectorAll('.now-card')];
-    cards.forEach(card => {
+    if (!call) return;
+    document.querySelectorAll('.now-card').forEach(card => {
       const room = card.querySelector('.now-room');
-      if (!room || !call) return;
-      let badge = card.querySelector(':scope > .call-count-badge');
-      if (!badge) { badge = makeBadge(call.callCount); card.insertBefore(badge, room); }
-      badge.textContent = ordinalShort(call.callCount);
-      badge.className = `call-count-badge ${badgeClass(call.callCount)}`;
+      if (!room) return;
+      ensureBadge(card, call.callCount, room);
     });
   }
 
   function decorateVoiceButton() {
     const button = document.getElementById('audio-btn');
     if (!button) return;
-    const txt = (button.textContent || '').toLowerCase();
-    button.textContent = txt.includes('ativado') ? '🔊 Voz ativa' : '🔊 Ativar voz';
-    button.title = 'Ative uma vez neste computador para permitir a locução dos chamados.';
+    const current = (button.textContent || '').toLowerCase();
+    const wanted = (current.includes('ativado') || current.includes('voz ativa')) ? '🔊 Voz ativa' : '🔊 Ativar voz';
+    if (button.textContent !== wanted) button.textContent = wanted;
+    if (button.title !== 'Ative uma vez neste computador para permitir a locução dos chamados.') {
+      button.title = 'Ative uma vez neste computador para permitir a locução dos chamados.';
+    }
     const actions = button.parentElement;
     if (actions && !actions.querySelector('.voice-hint')) {
       const hint = document.createElement('div');
@@ -86,10 +93,19 @@
     decorateVoiceButton();
   }
 
+  function scheduleDecorate() {
+    if (decorateQueued) return;
+    decorateQueued = true;
+    requestAnimationFrame(() => {
+      decorateQueued = false;
+      decorate();
+    });
+  }
+
   function updateState(data) {
     if (!data || typeof data !== 'object') return;
     callsState = data;
-    requestAnimationFrame(decorate);
+    scheduleDecorate();
   }
 
   async function refreshState() {
@@ -105,7 +121,7 @@
     if (socket && (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING)) return;
     const shell = document.getElementById('app-shell');
     if (!shell || shell.classList.contains('hidden')) {
-      reconnectTimer = setTimeout(connect, 2500);
+      reconnectTimer = setTimeout(connect, 3500);
       return;
     }
     try {
@@ -117,41 +133,60 @@
           if (message.type === 'snapshot') updateState(message.data);
         } catch {}
       };
-      socket.onclose = () => { socket = null; reconnectTimer = setTimeout(connect, 2500); };
+      socket.onclose = () => { socket = null; reconnectTimer = setTimeout(connect, 3500); };
       socket.onerror = () => { try { socket.close(); } catch {} };
     } catch {
       socket = null;
-      reconnectTimer = setTimeout(connect, 2500);
+      reconnectTimer = setTimeout(connect, 3500);
     }
   }
 
   function installSpeechPhrase() {
     if (!window.speechSynthesis || window.__crsCallSpeechPatched) return;
-    window.__crsCallSpeechPatched = true;
-    const originalSpeak = window.speechSynthesis.speak.bind(window.speechSynthesis);
-    window.speechSynthesis.speak = utterance => {
-      try {
-        const text = String(utterance?.text || '');
-        const match = text.match(/^Paciente\s+(.+?)\.\s*Dirija-se à sala\s+(.+?)\.\s*Repetindo:\s*sala\s+(.+?)\.?$/i);
-        if (match && utterance) {
-          const count = Number(callsState?.active?.[0]?.callCount) || 1;
-          const name = match[1].trim();
-          const room = match[2].trim();
-          utterance.text = `${ordinalWord(count)} chamada. Paciente ${name}, compareça ao consultório ${room}. Repetindo: paciente ${name}, consultório ${room}.`;
-          utterance.lang = 'pt-BR';
-          utterance.rate = 0.92;
-        }
-      } catch {}
-      return originalSpeak(utterance);
-    };
+    const synth = window.speechSynthesis;
+    const originalSpeak = synth.speak.bind(synth);
+    try {
+      synth.speak = utterance => {
+        try {
+          const text = String(utterance?.text || '');
+          const match = text.match(/^Paciente\s+(.+?)\.\s*Dirija-se à sala\s+(.+?)\.\s*Repetindo:\s*sala\s+(.+?)\.?$/i);
+          if (match && utterance) {
+            const count = Number(callsState?.active?.[0]?.callCount) || 1;
+            const name = match[1].trim();
+            const room = match[2].trim();
+            utterance.text = `${ordinalWord(count)} chamada. Paciente ${name}, compareça ao consultório ${room}. Repetindo: paciente ${name}, consultório ${room}.`;
+            utterance.lang = 'pt-BR';
+            utterance.rate = 0.92;
+          }
+        } catch {}
+        return originalSpeak(utterance);
+      };
+      window.__crsCallSpeechPatched = true;
+    } catch {
+      // Se o navegador não permitir substituir speak(), mantém a voz padrão do app.
+    }
   }
 
   installSpeechPhrase();
   installStyles();
   refreshState();
   connect();
-  window.addEventListener('hashchange', () => { refreshState(); setTimeout(decorate, 80); });
-  document.addEventListener('visibilitychange', () => { if (!document.hidden) { refreshState(); connect(); } });
-  new MutationObserver(decorate).observe(document.documentElement, { childList:true, subtree:true });
-  setInterval(() => { decorate(); connect(); }, 4000);
+
+  window.addEventListener('hashchange', () => {
+    refreshState();
+    setTimeout(scheduleDecorate, 80);
+  });
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) {
+      refreshState();
+      connect();
+      scheduleDecorate();
+    }
+  });
+
+  const content = document.getElementById('content');
+  if (content) {
+    new MutationObserver(scheduleDecorate).observe(content, { childList:true, subtree:true });
+  }
+  setInterval(() => { refreshState(); connect(); }, 15000);
 })();
