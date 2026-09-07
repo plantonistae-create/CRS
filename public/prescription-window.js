@@ -14,7 +14,8 @@
   function openOverlay(url) {
     let u = new URL(url, location.href);
     const duplicateLatest = u.searchParams.get('duplicateLatest') === '1';
-    u.pathname = duplicateLatest ? '/prescricao/duplicate-latest.html' : '/prescricao/crs-v4.html';
+    const latestOnly = u.searchParams.get('latestOnly') === '1';
+    u.pathname = (duplicateLatest || latestOnly) ? '/prescricao/duplicate-latest.html' : '/prescricao/crs-v4.html';
     let overlay = document.getElementById('crs-prescription-overlay');
     if (!overlay) {
       overlay = document.createElement('div');
@@ -24,7 +25,7 @@
       document.body.appendChild(overlay);
       overlay.querySelector('.prescription-overlay-close').onclick = () => overlay.classList.remove('show');
     }
-    overlay.querySelector('.prescription-overlay-head strong').textContent = duplicateLatest ? 'Duplicar última prescrição' : 'Prescrição';
+    overlay.querySelector('.prescription-overlay-head strong').textContent = duplicateLatest ? 'Duplicar última prescrição' : latestOnly ? 'Última prescrição salva' : 'Prescrição';
     overlay.querySelector('#crs-prescription-frame').src = u.toString();
     overlay.classList.add('show');
     return { closed:false, focus(){}, close(){ overlay.classList.remove('show'); } };
