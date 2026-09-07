@@ -47,25 +47,64 @@
     return /^\d{1,3}$/.test(raw) && Number(raw) <= 130 ? raw : '';
   }
 
+  function patientContext(patient) {
+    return patient ? {
+      name: patient.name,
+      age: normalizeAge(patient.age),
+      sex: normalizeSex(patient.sex),
+      status: patient.status,
+      sector: patient.sector,
+      pending: patient.pending || ''
+    } : null;
+  }
+
   async function sendContext(message, source) {
     const patientId = String(message.patientId || '').trim();
     if (!patientId) return reply(source, {type:'CRS_PRESCRIPTION_CONTEXT_V2', patientId, context:{patient:null}, snapshot:null});
     try {
-      const res = await fetch(`/api/clinical/patients/${encodeURIComponent(patientId)}`, {credentials:'same-origin'});
+      const res = await fetch(`/api/clinical/patients/${encodeURIComponent(patientId)}`, {credentials:'same-origin',cache:'no-store'});
       if (res.status === 404) {
         return reply(source, {type:'CRS_PRESCRIPTION_CONTEXT_V2', patientId, context:{patient:null}, snapshot:null});
       }
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || `Falha ao carregar paciente (${res.status}).`);
-      const patient = data.patient || null;
       reply(source, {
         type:'CRS_PRESCRIPTION_CONTEXT_V2',
         patientId,
-        context:{patient:patient ? {name:patient.name,age:normalizeAge(patient.age),sex:normalizeSex(patient.sex),status:patient.status,sector:patient.sector,pending:patient.pending||''} : null},
+        context:{patient:patientContext(data.patient || null)},
         snapshot:data.latestPrescription?.snapshot || null
       });
     } catch (error) {
       reply(source, {type:'CRS_PRESCRIPTION_CONTEXT_V2', patientId, context:{patient:null}, snapshot:null, error:error?.message || 'Falha ao carregar contexto.'});
+    }
+  }
+
+  async function sendHistoryContext(message, source) {
+    const patientId = String(message.patientId || '').trim();
+    const prescriptionId = String(message.prescriptionId || '').trim();
+    const base = {type:'CRS_PRESCRIPTION_HISTORY_CONTEXT',patientId,prescriptionId,context:{patient:null},snapshot:null};
+    if (!patientId || !prescriptionId) return reply(source,{...base,error:'Prescrição histórica não identificada.'});
+    try {
+      const [patientRes,prescriptionRes] = await Promise.all([
+        fetch(`/api/clinical/patients/${encodeURIComponent(patientId)}`, {credentials:'same-origin',cache:'no-store'}),
+        fetch(`/api/clinical/prescriptions/${encodeURIComponent(prescriptionId)}`, {credentials:'same-origin',cache:'no-store'})
+      ]);
+      const patientData = await patientRes.json().catch(() => ({}));
+      const prescriptionData = await prescriptionRes.json().catch(() => ({}));
+      if (!patientRes.ok) throw new Error(patientData.error || `Falha ao carregar paciente (${patientRes.status}).`);
+      if (!prescriptionRes.ok) throw new Error(prescriptionData.error || `Falha ao carregar prescrição (${prescriptionRes.status}).`);
+      const prescription = prescriptionData.prescription;
+      if (!prescription || prescription.patientId !== patientId) throw new Error('A prescrição não pertence a este paciente.');
+      const snapshot = prescription.snapshot && typeof prescription.snapshot === 'object' ? prescription.snapshot : null;
+      if (!snapshot) throw new Error('Esta versão não possui um snapshot completo para impressão.');
+      reply(source,{
+        ...base,
+        context:{patient:patientContext(patientData.patient || null)},
+        snapshot,
+        prescription:{id:prescription.id,createdAt:prescription.createdAt,destination:prescription.destination,sector:prescription.sector}
+      });
+    } catch (error) {
+      reply(source,{...base,error:error?.message || 'Não foi possível carregar esta versão da prescrição.'});
     }
   }
 
@@ -125,6 +164,7 @@
   window.addEventListener('message', event => {
     if (event.origin !== PRESC_ORIGIN || !event.data || typeof event.data !== 'object') return;
     if (event.data.type === 'CRS_PRESCRIPTION_READY_V2') sendContext(event.data, event.source);
+    if (event.data.type === 'CRS_PRESCRIPTION_HISTORY_READY') sendHistoryContext(event.data, event.source);
     if (event.data.type === 'CRS_PRESCRIPTION_SAVE_V2') savePrescription(event.data, event.source);
   });
 })();
