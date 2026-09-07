@@ -5,7 +5,7 @@
   const prescriptionId = qs.get('prescriptionId') || '';
   const root = document.getElementById('print-root');
 
-  function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[c]));}
+  function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
   function fmt(v){if(!v)return '—';const d=new Date(v);return d.toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});}
   async function getJson(url){const res=await fetch(url,{credentials:'same-origin',cache:'no-store'});const data=await res.json().catch(()=>({}));if(!res.ok)throw new Error(data.error||`Falha (${res.status})`);return data;}
   function destinationLabel(p){if(p.destination==='alta')return'Alta';if(p.destination==='reavaliacao')return'Reavaliação';if(p.destination==='censo'){const s={emergencia:'Emergência',infantil:'Enfermaria Infantil',feminina:'Enfermaria Feminina',masculina:'Enfermaria Masculina'}[p.sector];return s?`Censo · ${s}`:'Censo';}return'Prévia salva';}
