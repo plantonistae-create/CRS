@@ -1,7 +1,7 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "chamador-crs-coophavila",
-  "main": "src/index.js",
+  "main": "src/worker-entry.js",
   "compatibility_date": "2026-09-06",
   "workers_dev": true,
   "assets": {
@@ -13,11 +13,19 @@
       {
         "name": "CALL_ROOM",
         "class_name": "CallRoom"
+      },
+      {
+        "name": "EXAM_STORE",
+        "class_name": "ExamStore"
       }
     ]
   },
   "exports": {
     "CallRoom": {
+      "type": "durable-object",
+      "storage": "sqlite"
+    },
+    "ExamStore": {
       "type": "durable-object",
       "storage": "sqlite"
     }
