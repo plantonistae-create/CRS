@@ -10,7 +10,7 @@
     ['masculina','Enfermaria Masculina']
   ];
 
-  function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[c]));}
+  function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
   function toast(msg,err=false){const el=$('#toast');if(!el)return;el.textContent=msg;el.className='toast show'+(err?' err':'');clearTimeout(toast.t);toast.t=setTimeout(()=>el.className='toast',2800);}
   async function request(url,opts={}){
     const res=await fetch(url,{credentials:'same-origin',...opts});
