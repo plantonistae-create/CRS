@@ -13,7 +13,8 @@
 
   function openOverlay(url) {
     let u = new URL(url, location.href);
-    u.pathname = '/prescricao/crs-v4.html';
+    const duplicateLatest = u.searchParams.get('duplicateLatest') === '1';
+    u.pathname = duplicateLatest ? '/prescricao/duplicate-latest.html' : '/prescricao/crs-v4.html';
     let overlay = document.getElementById('crs-prescription-overlay');
     if (!overlay) {
       overlay = document.createElement('div');
@@ -23,6 +24,7 @@
       document.body.appendChild(overlay);
       overlay.querySelector('.prescription-overlay-close').onclick = () => overlay.classList.remove('show');
     }
+    overlay.querySelector('.prescription-overlay-head strong').textContent = duplicateLatest ? 'Duplicar última prescrição' : 'Prescrição';
     overlay.querySelector('#crs-prescription-frame').src = u.toString();
     overlay.classList.add('show');
     return { closed:false, focus(){}, close(){ overlay.classList.remove('show'); } };
