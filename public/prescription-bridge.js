@@ -24,6 +24,20 @@
       .slice(0, 4000);
   }
 
+  function normalizeSex(value) {
+    const raw = String(value || '').trim();
+    const n = raw.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    if (['m','masc','masculino','homem'].includes(n)) return 'Masculino';
+    if (['f','fem','feminino','mulher'].includes(n)) return 'Feminino';
+    return '';
+  }
+
+  function normalizeAge(value) {
+    const raw = String(value || '').trim();
+    if (!raw) return '';
+    return /^\d{1,3}$/.test(raw) && Number(raw) <= 130 ? raw : '';
+  }
+
   async function sendContext(message, source) {
     const patientId = String(message.patientId || '').trim();
     if (!patientId) return reply(source, {type:'CRS_PRESCRIPTION_CONTEXT_V2', patientId, context:{patient:null}, snapshot:null});
@@ -38,7 +52,7 @@
       reply(source, {
         type:'CRS_PRESCRIPTION_CONTEXT_V2',
         patientId,
-        context:{patient:patient ? {name:patient.name,age:patient.age,sex:patient.sex,status:patient.status,sector:patient.sector,pending:patient.pending||''} : null},
+        context:{patient:patient ? {name:patient.name,age:normalizeAge(patient.age),sex:normalizeSex(patient.sex),status:patient.status,sector:patient.sector,pending:patient.pending||''} : null},
         snapshot:data.latestPrescription?.snapshot || null
       });
     } catch (error) {
@@ -51,7 +65,12 @@
     const sendResult = payload => reply(source, {type:'CRS_PRESCRIPTION_SAVE_RESULT', requestId, ...payload});
     try {
       const patientId = String(message.patientId || '').trim();
-      const patient = message.patient && typeof message.patient === 'object' ? message.patient : {};
+      const rawPatient = message.patient && typeof message.patient === 'object' ? message.patient : {};
+      const patient = {
+        name: String(rawPatient.name || '').trim().slice(0, 120),
+        age: normalizeAge(rawPatient.age),
+        sex: normalizeSex(rawPatient.sex)
+      };
       const destination = allowedDestinations.has(message.destination) ? message.destination : 'salvar';
       const sector = destination === 'censo' && allowedSectors.has(message.sector) ? message.sector : '';
       const pending = sanitizePending(message.pending);
@@ -59,7 +78,7 @@
       const snapshot = {...rawSnapshot, previewText:sanitizePreview(rawSnapshot.previewText), pending};
 
       if (!patientId) throw new Error('Paciente não identificado.');
-      if (!String(patient.name || '').trim()) throw new Error('Informe o nome do paciente antes de salvar.');
+      if (!patient.name) throw new Error('Informe o nome do paciente antes de salvar.');
       if (destination === 'censo' && !sector) throw new Error('Selecione o setor do Censo.');
 
       const res = await fetch('/api/clinical/prescription', {
