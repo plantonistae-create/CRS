@@ -13,7 +13,7 @@
 
   function openOverlay(url) {
     let u = new URL(url, location.href);
-    u.pathname = '/prescricao/crs-v3.html';
+    u.pathname = '/prescricao/crs-v4.html';
     let overlay = document.getElementById('crs-prescription-overlay');
     if (!overlay) {
       overlay = document.createElement('div');
