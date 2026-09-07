@@ -1,0 +1,12 @@
+@page{size:A4;margin:14mm}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;background:#eef4f9;color:#111;font-family:Arial,Helvetica,sans-serif}
+.print-root{max-width:210mm;margin:18px auto;background:#fff;min-height:270mm;padding:16mm;box-shadow:0 10px 30px rgba(30,60,90,.12)}
+.loading,.error{padding:32px;text-align:center;color:#52697b;font-size:14px}
+.error{color:#a32932}
+.print-head{border-bottom:1.5px solid #222;padding-bottom:10px;margin-bottom:16px}
+.print-head h1{font-size:18pt;margin:0 0 6px}.print-meta{font-size:9.5pt;color:#444;line-height:1.4}.print-dest{margin-top:5px;font-size:9.5pt;color:#333}
+.rx{white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word;line-height:1.5;font-size:11.5pt}
+.print-foot{margin-top:24px;padding-top:8px;border-top:1px solid #bbb;font-size:8.5pt;color:#666}
+.print-actions{position:fixed;right:18px;top:18px;display:flex;gap:8px}.print-actions button{border:1px solid #c9d8e4;border-radius:8px;background:#fff;color:#294052;padding:9px 12px;font-weight:700;cursor:pointer}.print-actions .primary{background:#1675d1;border-color:#1675d1;color:#fff}
+@media print{html,body{background:#fff}.print-root{max-width:none;margin:0;padding:0;min-height:0;box-shadow:none}.print-actions{display:none}}
