@@ -26,6 +26,15 @@ jobs:
         with:
           node-version: '22'
 
+      - name: Preflight prescription dependency
+        run: |
+          set -euo pipefail
+          PRESC='https://plantonistae-create.github.io/prescricao/history-open.html'
+          curl --fail --silent --show-error --max-time 20 "$PRESC" -o /tmp/history-open.html
+          grep -q 'CRS_PRESCRIPTION_HISTORY_READY' /tmp/history-open.html
+          grep -q 'restoredAsCopy' /tmp/history-open.html
+          echo 'prescription history dependency ok'
+
       - name: Deploy Worker
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -57,11 +66,21 @@ jobs:
           grep -q 'Prescrição' /tmp/index.html
           grep -q 'Chamador' /tmp/index.html
           grep -q 'prescription-bridge.js' /tmp/index.html
+          grep -q 'prescription-save-guard.js' /tmp/index.html
+          grep -q 'prescription-history-edit.js' /tmp/index.html
 
           curl --fail --silent --show-error --max-time 20 "$BASE/prescription-bridge.js" -o /tmp/prescription-bridge.js
           grep -q 'CRS_PRESCRIPTION_READY_V2' /tmp/prescription-bridge.js
           grep -q 'CRS_PRESCRIPTION_SAVE_V2' /tmp/prescription-bridge.js
           grep -q 'CRS_PRESCRIPTION_SAVE_RESULT' /tmp/prescription-bridge.js
+
+          curl --fail --silent --show-error --max-time 20 "$BASE/prescription-save-guard.js" -o /tmp/prescription-save-guard.js
+          grep -q 'SNAPSHOT_SOFT_LIMIT' /tmp/prescription-save-guard.js
+          grep -q 'snapshotCompacted' /tmp/prescription-save-guard.js
+
+          curl --fail --silent --show-error --max-time 20 "$BASE/prescription-history-edit.js" -o /tmp/prescription-history-edit.js
+          grep -q 'history-open.html' /tmp/prescription-history-edit.js
+          grep -q 'Abrir como cópia' /tmp/prescription-history-edit.js
 
           status=$(curl --silent --output /tmp/session.json --write-out '%{http_code}' --max-time 20 "$BASE/api/auth/session")
           test "$status" = '401'
