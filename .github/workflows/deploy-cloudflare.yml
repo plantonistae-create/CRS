@@ -29,11 +29,16 @@ jobs:
       - name: Preflight prescription dependency
         run: |
           set -euo pipefail
-          PRESC='https://plantonistae-create.github.io/prescricao/history-open.html'
-          curl --fail --silent --show-error --max-time 20 "$PRESC" -o /tmp/history-open.html
+          BASE='https://plantonistae-create.github.io/prescricao'
+          curl --fail --silent --show-error --max-time 20 "$BASE/history-open.html" -o /tmp/history-open.html
           grep -q 'CRS_PRESCRIPTION_HISTORY_READY' /tmp/history-open.html
           grep -q 'restoredAsCopy' /tmp/history-open.html
-          echo 'prescription history dependency ok'
+          grep -q 'crs-v5.html' /tmp/history-open.html
+          curl --fail --silent --show-error --max-time 20 "$BASE/crs-v5.html" -o /tmp/crs-v5.html
+          grep -q 'prescricao_draft_session_v2' /tmp/crs-v5.html
+          grep -q 'stateCaptureVersion' /tmp/crs-v5.html
+          grep -q 'CRS_PRESCRIPTION_SAVE_V2' /tmp/crs-v5.html
+          echo 'complete prescription state dependency ok'
 
       - name: Deploy Worker
         env:
@@ -45,43 +50,35 @@ jobs:
         run: |
           set -euo pipefail
           BASE='https://chamador-crs-coophavila.crs-coophavila.workers.dev'
-
           for attempt in 1 2 3 4 5; do
-            if curl --fail --silent --show-error --max-time 20 "$BASE/api/health" -o /tmp/health.json; then
-              break
-            fi
-            if [ "$attempt" = "5" ]; then
-              echo 'Health endpoint did not become available.' >&2
-              exit 1
-            fi
+            if curl --fail --silent --show-error --max-time 20 "$BASE/api/health" -o /tmp/health.json; then break; fi
+            if [ "$attempt" = "5" ]; then echo 'Health endpoint did not become available.' >&2; exit 1; fi
             sleep 3
           done
-
           node -e "const fs=require('fs'); const x=JSON.parse(fs.readFileSync('/tmp/health.json','utf8')); if(!x.ok || x.storage!=='durable-object-sqlite' || x.realtime!=='websocket') process.exit(1); console.log('health ok:', x);"
-
           curl --fail --silent --show-error --max-time 20 "$BASE/" -o /tmp/index.html
           grep -q 'CRS Coophavila · Urgência e Emergência' /tmp/index.html
-          grep -q 'Censo' /tmp/index.html
+          grep -q 'Internação' /tmp/index.html
           grep -q 'Reavaliações' /tmp/index.html
           grep -q 'Prescrição' /tmp/index.html
           grep -q 'Chamador' /tmp/index.html
+          grep -q 'Recepção' /tmp/index.html
           grep -q 'prescription-bridge.js' /tmp/index.html
           grep -q 'prescription-save-guard.js' /tmp/index.html
           grep -q 'prescription-history-edit.js' /tmp/index.html
-
           curl --fail --silent --show-error --max-time 20 "$BASE/prescription-bridge.js" -o /tmp/prescription-bridge.js
           grep -q 'CRS_PRESCRIPTION_READY_V2' /tmp/prescription-bridge.js
           grep -q 'CRS_PRESCRIPTION_SAVE_V2' /tmp/prescription-bridge.js
           grep -q 'CRS_PRESCRIPTION_SAVE_RESULT' /tmp/prescription-bridge.js
-
           curl --fail --silent --show-error --max-time 20 "$BASE/prescription-save-guard.js" -o /tmp/prescription-save-guard.js
           grep -q 'SNAPSHOT_SOFT_LIMIT' /tmp/prescription-save-guard.js
+          grep -q 'prescricao_draft_session_v2' /tmp/prescription-save-guard.js
           grep -q 'snapshotCompacted' /tmp/prescription-save-guard.js
-
+          curl --fail --silent --show-error --max-time 20 "$BASE/prescription-window.js" -o /tmp/prescription-window.js
+          grep -q 'crs-v5.html' /tmp/prescription-window.js
           curl --fail --silent --show-error --max-time 20 "$BASE/prescription-history-edit.js" -o /tmp/prescription-history-edit.js
           grep -q 'history-open.html' /tmp/prescription-history-edit.js
           grep -q 'Abrir como cópia' /tmp/prescription-history-edit.js
-
           status=$(curl --silent --output /tmp/session.json --write-out '%{http_code}' --max-time 20 "$BASE/api/auth/session")
           test "$status" = '401'
           echo 'production smoke test passed'
