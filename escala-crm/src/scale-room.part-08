@@ -15,10 +15,15 @@
     this.audit(actor.role,actor.id,"create","shift",id,null,b); await this.commitAndBroadcast(); return json({ shift: mapShift(this.sql.exec("SELECT * FROM shifts WHERE id=?",id).one()) },201);
   }
   async adminReplaceShift(request, id) {
-    const actor = await this.actor(request,{adminOnly:true}); const old=this.ensureShift(id); const b=await this.readJson(request); this.ensureDoctor(b.doctorId); const category=normalizeCategory(b.category); const fn=normalizeFunction(b.function || old.function_code);
-    if(category!=="fixo") this.assertExtraCapacity(old.shift_date, old.hours, id);
-    validateFunctionSchedule(fn,old.start_time,old.end_time,old.hours); const now=Date.now(); this.sql.exec("UPDATE shifts SET doctor_id=?,function_code=?,category=?,active=1,locked=1,updated_at=? WHERE id=?",b.doctorId,fn,category,now,id);
-    const current=this.sql.exec("SELECT * FROM shifts WHERE id=?",id).one(); this.audit(actor.role,actor.id,"replace","shift",id,old,current); await this.commitAndBroadcast(); return json({shift:mapShift(current)});
+    const actor=await this.actor(request,{adminOnly:true}); const old=this.ensureShift(id); const b=await this.readJson(request); const replacement=this.ensureDoctor(b.doctorId); if(!replacement.active)throw new ScaleError("O médico substituto está inativo.",409);
+    const reasonType=String(b.reasonType||"troca"); if(!["troca","atestado","ausencia","pagamento"].includes(reasonType))throw new ScaleError("Motivo da substituição inválido.");
+    const category=normalizeCategory(reasonType==="pagamento"?"pagamento":(b.category||"eventual")); const fn=normalizeFunction(b.function||old.function_code);
+    if(category!=="fixo")this.assertExtraCapacity(old.shift_date,old.hours,id); validateFunctionSchedule(fn,old.start_time,old.end_time,old.hours);
+    const now=Date.now();
+    if(reasonType==="atestado")this.sql.exec("INSERT INTO certificates(id,doctor_id,event_date,hours,request_id,created_at) VALUES(?,?,?,?,NULL,?)",crypto.randomUUID(),old.doctor_id,old.shift_date,old.hours,now);
+    if(reasonType==="ausencia"&&b.generatesDebt){const debtHours=hoursValue(b.debtHours||old.hours);this.sql.exec("INSERT INTO compensation(id,doctor_id,event_date,hours,kind,source,request_id,created_at) VALUES(?,?,?,?, 'debt','admin-replacement',NULL,?)",crypto.randomUUID(),old.doctor_id,old.shift_date,debtHours,now);}
+    this.sql.exec("UPDATE shifts SET doctor_id=?,function_code=?,category=?,active=1,locked=1,updated_at=? WHERE id=?",b.doctorId,fn,category,now,id);
+    const current=this.sql.exec("SELECT * FROM shifts WHERE id=?",id).one(); this.audit(actor.role,actor.id,"replace","shift",id,old,{...current,reasonType,generatesDebt:reasonType==="ausencia"&&!!b.generatesDebt,replacementDoctorId:b.doctorId}); await this.commitAndBroadcast(); return json({shift:mapShift(current)});
   }
   async adminRemoveShift(request,id){ const actor=await this.actor(request,{adminOnly:true}); const old=this.ensureShift(id); const now=Date.now(); this.sql.exec("UPDATE shifts SET active=0,locked=1,updated_at=? WHERE id=?",now,id); this.audit(actor.role,actor.id,"remove","shift",id,old,{...old,active:0}); await this.commitAndBroadcast(); return json({ok:true}); }
   async adminSetDoctorStatus(request,id){
