@@ -1,14 +1,15 @@
-    return { doctorId, name: doc?.name || "", plannedHours: planned, attestationHours: att, attestationPercent: pct, attestationLimitHours: Math.round(planned * 0.25 * 100) / 100, debtHours: debt, paidHours: paid, balanceHours: Math.max(0, Math.round((debt - paid) * 100) / 100), extraHours: extra };
+    return { doctorId, name: doc?.name || "", crm: doc?.crm || "", doctorType: doc?.doctor_type || "folha", plannedShifts, plannedHours: planned, attestationHours: att, attestationPercent: pct, attestationLimitHours: Math.round(planned * 0.25 * 100) / 100, debtHours: debt, paidHours: paid, balanceHours: Math.max(0, Math.round((debt - paid) * 100) / 100), extraHours: extra };
   }
 
   async adminCreateDoctor(request) {
     const actor = await this.actor(request, { adminOnly: true }); const b = await this.readJson(request);
     const name = text(b.name, 120, "nome"); if (name.length < 2) throw new ScaleError("Informe o nome do médico.");
     const crm = text(b.crm, 5, "CRM"); if (!/^\d{4,5}$/.test(crm)) throw new ScaleError("O CRM deve conter 4 ou 5 dígitos, somente números.");
+    const doctorType = String(b.doctorType || "folha"); if (!["folha","extra"].includes(doctorType)) throw new ScaleError("Categoria de médico inválida.");
     const salt = hex(crypto.getRandomValues(new Uint8Array(16))); const hash = await passwordHash(randomToken().slice(0,16), salt); const id = crypto.randomUUID(); const now = Date.now();
-    try { this.sql.exec("INSERT INTO doctors(id,name,login,password_salt,password_hash,active,created_at,updated_at,crm) VALUES(?,?,?,?,?,1,?,?,?)", id, name, crm, salt, hash, now, now, crm); }
+    try { this.sql.exec("INSERT INTO doctors(id,name,login,password_salt,password_hash,active,created_at,updated_at,crm,doctor_type) VALUES(?,?,?,?,?,1,?,?,?,?)", id, name, crm, salt, hash, now, now, crm, doctorType); }
     catch { throw new ScaleError("Este CRM já está cadastrado.", 409); }
-    this.audit(actor.role, actor.id, "create", "doctor", id, null, { name, crm }); await this.commitAndBroadcast();
+    this.audit(actor.role, actor.id, "create", "doctor", id, null, { name, crm, doctorType }); await this.commitAndBroadcast();
     return json({ doctor: mapDoctor(this.sql.exec("SELECT * FROM doctors WHERE id=?", id).one()) }, 201);
   }
   async adminResetPassword(request, id) {
