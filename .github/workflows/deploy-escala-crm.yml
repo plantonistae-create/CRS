@@ -1,0 +1,67 @@
+name: Deploy Escala CRM CS Coophavila
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'escala-crm/**'
+      - '.github/workflows/deploy-escala-crm.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Assemble and validate
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/escala-app
+          mkdir -p /tmp/escala-app/src /tmp/escala-app/public
+          cat escala-crm/src/scale-room.part-* > /tmp/escala-app/src/scale-room.js
+          cat escala-crm/public/escala-js.part-* > /tmp/escala-app/public/escala.js
+          cp escala-crm/src/scale-entry.js escala-crm/src/scale-file-store.js /tmp/escala-app/src/
+          cp escala-crm/public/escala.html escala-crm/public/index.html escala-crm/public/escala.css escala-crm/public/escala-sw.js escala-crm/public/escala-manifest.json /tmp/escala-app/public/
+          cp escala-crm/wrangler.jsonc /tmp/escala-app/
+          node --check /tmp/escala-app/src/scale-room.js
+          node --check /tmp/escala-app/src/scale-entry.js
+          node --check /tmp/escala-app/src/scale-file-store.js
+          node --check /tmp/escala-app/public/escala.js
+          grep -q 'EXTRA_DAILY_LIMIT = 96' /tmp/escala-app/src/scale-room.js
+          grep -q 'VIEWER_SESSION_COOKIE' /tmp/escala-app/src/scale-room.js
+          grep -q 'CRM com exatamente 5 dígitos' /tmp/escala-app/src/scale-room.js
+          grep -q 'Código compartilhado da unidade' /tmp/escala-app/public/escala.js
+          grep -q 'Cinderela deve ser lançado obrigatoriamente' /tmp/escala-app/src/scale-room.js
+          echo 'Escala CRM validada'
+      - name: Deploy Escala Worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          cd /tmp/escala-app
+          npx --yes wrangler@latest deploy
+      - name: Smoke test production
+        run: |
+          set -euo pipefail
+          BASE='https://escala-medica-cs-coophavila.crs-coophavila.workers.dev'
+          for attempt in 1 2 3 4 5; do
+            if curl --fail --silent --show-error --max-time 20 "$BASE/api/health" -o /tmp/health.json; then break; fi
+            test "$attempt" != '5'
+            sleep 3
+          done
+          node -e "const fs=require('fs');const x=JSON.parse(fs.readFileSync('/tmp/health.json','utf8'));if(!x.ok||x.site!=='escala-medica-cs-coophavila')process.exit(1)"
+          curl --fail --silent --show-error --max-time 20 "$BASE/escala.js" -o /tmp/escala.js
+          grep -q 'Código compartilhado da unidade' /tmp/escala.js
+          grep -q 'CRM (5 dígitos)' /tmp/escala.js
+          curl --fail --silent --show-error --max-time 20 "$BASE/api/auth/admin/status" -o /tmp/status.json
+          node -e "const fs=require('fs');const x=JSON.parse(fs.readFileSync('/tmp/status.json','utf8'));if(typeof x.configured!=='boolean'||typeof x.unitAccessConfigured!=='boolean')process.exit(1)"
+          echo 'Escala CRM production smoke test passed'
