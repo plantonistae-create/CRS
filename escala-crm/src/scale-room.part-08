@@ -21,6 +21,15 @@
     const current=this.sql.exec("SELECT * FROM shifts WHERE id=?",id).one(); this.audit(actor.role,actor.id,"replace","shift",id,old,current); await this.commitAndBroadcast(); return json({shift:mapShift(current)});
   }
   async adminRemoveShift(request,id){ const actor=await this.actor(request,{adminOnly:true}); const old=this.ensureShift(id); const now=Date.now(); this.sql.exec("UPDATE shifts SET active=0,locked=1,updated_at=? WHERE id=?",now,id); this.audit(actor.role,actor.id,"remove","shift",id,old,{...old,active:0}); await this.commitAndBroadcast(); return json({ok:true}); }
+  async adminSetDoctorStatus(request,id){
+    const actor=await this.actor(request,{adminOnly:true}); const old=this.ensureDoctor(id); const b=await this.readJson(request); const active=b.active===true||b.active===1||b.active==="1"; const now=Date.now();
+    this.sql.exec("UPDATE doctors SET active=?,updated_at=? WHERE id=?",active?1:0,now,id); if(!active)this.sql.exec("DELETE FROM sessions WHERE doctor_id=?",id);
+    const current=this.sql.exec("SELECT * FROM doctors WHERE id=?",id).one(); this.audit(actor.role,actor.id,active?"reactivate":"deactivate","doctor",id,old,current); await this.commitAndBroadcast(); return json({doctor:mapDoctor(current)});
+  }
+  async adminSetDoctorType(request,id){
+    const actor=await this.actor(request,{adminOnly:true}); const old=this.ensureDoctor(id); const b=await this.readJson(request); const doctorType=String(b.doctorType||""); if(!["folha","extra"].includes(doctorType))throw new ScaleError("Categoria de médico inválida.");
+    this.sql.exec("UPDATE doctors SET doctor_type=?,updated_at=? WHERE id=?",doctorType,Date.now(),id); const current=this.sql.exec("SELECT * FROM doctors WHERE id=?",id).one(); this.audit(actor.role,actor.id,"doctor_type","doctor",id,old,current); await this.commitAndBroadcast(); return json({doctor:mapDoctor(current)});
+  }
   async adminRecord(request){
     const actor=await this.actor(request,{adminOnly:true}); const b=await this.readJson(request); this.ensureDoctor(b.doctorId); const date=dateOnly(b.eventDate), hours=hoursValue(b.hours); const kind=String(b.kind||""); const reason=text(b.reason,500,"motivo"); if(!reason) throw new ScaleError("Informe o motivo do lançamento administrativo.");
     const id=crypto.randomUUID(), now=Date.now();
