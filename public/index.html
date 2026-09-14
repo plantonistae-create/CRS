@@ -10,6 +10,7 @@
   <link rel="stylesheet" href="/pending-workflow.css">
   <link rel="stylesheet" href="/navigation-refinement.css?v=20260913-1">
   <link rel="stylesheet" href="/patient-priority.css?v=20260913-1">
+  <link rel="stylesheet" href="/chamador-premium.css?v=20260914-1">
   <script src="/prescription-window.js?v=20260913-1" defer></script>
   <script src="/prescription-save-guard.js?v=20260913-1" defer></script>
   <script src="/exam-attachments.js" defer></script>
@@ -18,6 +19,7 @@
   <script src="/pending-workflow.js" defer></script>
   <script src="/patient-edit.js" defer></script>
   <script src="/call-enhancements.js" defer></script>
+  <script src="/chamador-premium.js?v=20260914-1" defer></script>
   <script src="/prescription-history.js?v=20260913-1" defer></script>
   <script src="/prescription-duplicate.js?v=20260913-1" defer></script>
   <script src="/prescription-history-edit.js?v=20260913-1" defer></script>
@@ -27,48 +29,8 @@
 </head>
 <body>
   <div id="toast" class="toast" role="status"></div>
-
-  <section id="login-view" class="login-view hidden">
-    <div class="login-card">
-      <div class="brand-lockup"><span class="brand-dot"></span><div><strong>CRS Coophavila</strong><small>Urgência e Emergência</small></div></div>
-      <h1>Acesso</h1>
-      <p>Entre com o perfil utilizado na unidade.</p>
-      <form id="login-form">
-        <label>Perfil
-          <select id="login-role">
-            <option value="doctor">Médico</option>
-            <option value="admin">Admin</option>
-          </select>
-        </label>
-        <label>Senha
-          <input id="login-password" type="password" autocomplete="current-password" required>
-        </label>
-        <button class="btn primary full" type="submit">Entrar</button>
-        <div id="login-error" class="form-error"></div>
-      </form>
-    </div>
-  </section>
-
-  <div id="app-shell" class="shell hidden">
-    <header class="topbar">
-      <div class="brand-lockup"><span class="brand-dot"></span><div><strong>CRS Coophavila</strong><small>Urgência e Emergência</small></div></div>
-      <nav id="nav" class="nav">
-        <a href="#painel" data-route="painel">Painel</a>
-        <a href="#censo" data-route="censo">Internação</a>
-        <a href="#reavaliacoes" data-route="reavaliacoes">Reavaliações</a>
-        <a href="#prescricao" data-route="prescricao">Prescrição</a>
-        <a href="#chamador" data-route="chamador">Chamador</a>
-        <a href="#recepcao" data-route="recepcao">Recepção</a>
-      </nav>
-      <div class="top-actions">
-        <span id="sync-status" class="sync">conectando…</span>
-        <span id="role-badge" class="role-badge"></span>
-        <button id="logout-btn" class="btn ghost small">Sair</button>
-      </div>
-    </header>
-    <main id="content" class="content"></main>
-  </div>
-
+  <section id="login-view" class="login-view hidden"><div class="login-card"><div class="brand-lockup"><span class="brand-dot"></span><div><strong>CRS Coophavila</strong><small>Urgência e Emergência</small></div></div><h1>Acesso</h1><p>Entre com o perfil utilizado na unidade.</p><form id="login-form"><label>Perfil<select id="login-role"><option value="doctor">Médico</option><option value="admin">Admin</option></select></label><label>Senha<input id="login-password" type="password" autocomplete="current-password" required></label><button class="btn primary full" type="submit">Entrar</button><div id="login-error" class="form-error"></div></form></div></section>
+  <div id="app-shell" class="shell hidden"><header class="topbar"><div class="brand-lockup"><span class="brand-dot"></span><div><strong>CRS Coophavila</strong><small>Urgência e Emergência</small></div></div><nav id="nav" class="nav"><a href="#painel" data-route="painel">Painel</a><a href="#censo" data-route="censo">Internação</a><a href="#reavaliacoes" data-route="reavaliacoes">Reavaliações</a><a href="#prescricao" data-route="prescricao">Prescrição</a><a href="#chamador" data-route="chamador">Chamador</a><a href="#recepcao" data-route="recepcao">Recepção</a></nav><div class="top-actions"><span id="sync-status" class="sync">conectando…</span><span id="role-badge" class="role-badge"></span><button id="logout-btn" class="btn ghost small">Sair</button></div></header><main id="content" class="content"></main></div>
   <div id="modal" class="modal hidden" aria-hidden="true"><div id="modal-card" class="modal-card"></div></div>
 </body>
 </html>
