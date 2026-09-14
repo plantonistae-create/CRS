@@ -1,0 +1,34 @@
+name: Validate Escala V4
+on:
+  pull_request:
+    paths:
+      - 'escala-crm/**'
+      - '.github/workflows/validate-escala-v4.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Assemble and validate
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/escala/src /tmp/escala/public
+          cat escala-crm/src/scale-room.part-* > /tmp/escala/src/scale-room.js
+          cat escala-crm/public/escala-js.part-* > /tmp/escala/public/escala.js
+          cp escala-crm/src/scale-entry.js escala-crm/src/scale-file-store.js /tmp/escala/src/
+          node --check /tmp/escala/src/scale-room.js
+          node --check /tmp/escala/src/scale-entry.js
+          node --check /tmp/escala/src/scale-file-store.js
+          node --check /tmp/escala/public/escala.js
+          grep -q 'Médicos só podem solicitar alterações em plantões futuros' /tmp/escala/src/scale-room.js
+          grep -q 'Configuração inicial do administrador' /tmp/escala/public/escala.js
+          grep -q 'Meus plantões futuros' /tmp/escala/public/escala.js
+          grep -q "state.loginMode==='doctor'" /tmp/escala/public/escala.js
+          grep -q 'Nome completo' /tmp/escala/public/escala.js
+          echo 'Escala V4 validada'
