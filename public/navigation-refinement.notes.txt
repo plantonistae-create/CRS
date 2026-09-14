@@ -1,0 +1,1 @@
+Compatibilidade: a mudança de rótulo Censo -> Internação é somente visual. A rota e o status interno continuam usando censo para preservar os dados e o backend existentes.
