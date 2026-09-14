@@ -4,6 +4,10 @@
       if (request.method === "POST" && shiftReplace) return await this.adminReplaceShift(request, shiftReplace[1]);
       const shiftRemove = p.match(/^\/admin\/shifts\/([^/]+)\/remove$/);
       if (request.method === "POST" && shiftRemove) return await this.adminRemoveShift(request, shiftRemove[1]);
+      const doctorStatus = p.match(/^\/admin\/doctors\/([^/]+)\/status$/);
+      if (request.method === "POST" && doctorStatus) return await this.adminSetDoctorStatus(request, doctorStatus[1]);
+      const doctorType = p.match(/^\/admin\/doctors\/([^/]+)\/type$/);
+      if (request.method === "POST" && doctorType) return await this.adminSetDoctorType(request, doctorType[1]);
       if (request.method === "POST" && p === "/admin/records") return await this.adminRecord(request);
 
       if (request.method === "POST" && p === "/requests") return await this.createRequest(request);
