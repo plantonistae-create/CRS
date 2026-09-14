@@ -8,6 +8,7 @@
   <link rel="stylesheet" href="/styles.css">
   <link rel="stylesheet" href="/prescription-window.css">
   <link rel="stylesheet" href="/pending-workflow.css">
+  <link rel="stylesheet" href="/navigation-refinement.css?v=20260913-1">
   <script src="/prescription-window.js?v=20260913-1" defer></script>
   <script src="/prescription-save-guard.js?v=20260913-1" defer></script>
   <script src="/exam-attachments.js" defer></script>
@@ -20,6 +21,7 @@
   <script src="/prescription-duplicate.js?v=20260913-1" defer></script>
   <script src="/prescription-history-edit.js?v=20260913-1" defer></script>
   <script src="/prescription-print-action.js?v=20260913-1" defer></script>
+  <script src="/navigation-refinement.js?v=20260913-1" defer></script>
 </head>
 <body>
   <div id="toast" class="toast" role="status"></div>
@@ -50,10 +52,11 @@
       <div class="brand-lockup"><span class="brand-dot"></span><div><strong>CRS Coophavila</strong><small>Urgência e Emergência</small></div></div>
       <nav id="nav" class="nav">
         <a href="#painel" data-route="painel">Painel</a>
-        <a href="#censo" data-route="censo">Censo</a>
+        <a href="#censo" data-route="censo">Internação</a>
         <a href="#reavaliacoes" data-route="reavaliacoes">Reavaliações</a>
         <a href="#prescricao" data-route="prescricao">Prescrição</a>
         <a href="#chamador" data-route="chamador">Chamador</a>
+        <a href="#recepcao" data-route="recepcao">Recepção</a>
       </nav>
       <div class="top-actions">
         <span id="sync-status" class="sync">conectando…</span>
