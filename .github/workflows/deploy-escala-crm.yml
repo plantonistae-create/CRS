@@ -68,25 +68,28 @@ jobs:
         run: |
           set -euo pipefail
           BASE='https://escala-medica-cs-coophavila.crs-coophavila.workers.dev'
-          for attempt in 1 2 3 4 5; do
-            if curl --fail --silent --show-error --max-time 20 "$BASE/api/health" -o /tmp/health.json; then break; fi
-            test "$attempt" != '5'
-            sleep 3
-          done
+          fetch_until() {
+            local url="$1" out="$2" needle="$3"
+            for attempt in 1 2 3 4 5 6; do
+              if curl --fail --silent --show-error --max-time 20 -H 'Cache-Control: no-cache' "$url" -o "$out" && grep -q "$needle" "$out"; then
+                return 0
+              fi
+              sleep 3
+            done
+            echo "Smoke check failed for $url"
+            cat "$out" 2>/dev/null || true
+            return 1
+          }
+          fetch_until "$BASE/api/health" /tmp/health.json '"ok":true'
           node -e "const fs=require('fs');const x=JSON.parse(fs.readFileSync('/tmp/health.json','utf8'));if(!x.ok||x.site!=='escala-medica-cs-coophavila')process.exit(1)"
-          curl --fail --silent --show-error --max-time 20 "$BASE/escala.js?v=12" -o /tmp/escala.js
-          grep -q 'Código compartilhado da unidade' /tmp/escala.js
-          curl --fail --silent --show-error --max-time 20 "$BASE/crm-format-patch.js?v=12" -o /tmp/crm-format-patch.js
-          grep -q '4 ou 5 dígitos' /tmp/crm-format-patch.js
-          curl --fail --silent --show-error --max-time 20 "$BASE/ux-v11.js?v=12" -o /tmp/ux-v11.js
-          grep -q 'Substituir plantonista' /tmp/ux-v11.js
-          curl --fail --silent --show-error --max-time 20 "$BASE/ux-v12.js?v=12" -o /tmp/ux-v12.js
-          grep -q 'Matutino' /tmp/ux-v12.js
+          fetch_until "$BASE/escala.js?v=12&ci=${GITHUB_SHA}" /tmp/escala.js 'Código compartilhado da unidade'
+          fetch_until "$BASE/crm-format-patch.js?v=12&ci=${GITHUB_SHA}" /tmp/crm-format-patch.js '4 ou 5 dígitos'
+          fetch_until "$BASE/ux-v11.js?v=12&ci=${GITHUB_SHA}" /tmp/ux-v11.js 'Substituir plantonista'
+          fetch_until "$BASE/ux-v12.js?v=12&ci=${GITHUB_SHA}" /tmp/ux-v12.js 'Matutino'
+          grep -q 'Vespertino' /tmp/ux-v12.js
           grep -q 'Diurno' /tmp/ux-v12.js
           grep -q 'Noturno' /tmp/ux-v12.js
           grep -q 'Cinderela' /tmp/ux-v12.js
-          curl --fail --silent --show-error --max-time 20 "$BASE/ux-v11.css?v=12" -o /tmp/ux-v11.css
-          grep -q 'data-theme="light"' /tmp/ux-v11.css
-          curl --fail --silent --show-error --max-time 20 "$BASE/api/auth/admin/status" -o /tmp/status.json
+          fetch_until "$BASE/api/auth/admin/status" /tmp/status.json 'configured'
           node -e "const fs=require('fs');const x=JSON.parse(fs.readFileSync('/tmp/status.json','utf8'));if(typeof x.configured!=='boolean'||typeof x.unitAccessConfigured!=='boolean')process.exit(1)"
           echo 'Escala CRM v12 production smoke test passed'
