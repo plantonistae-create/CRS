@@ -26,8 +26,6 @@
     return json({ ok: true }, 200, { "set-cookie": clearCookie(ADMIN_SESSION_COOKIE) });
   }
   async doctorLogin(request) {
-    const viewer = await this.viewerFromRequest(request);
-    if (!viewer) throw new ScaleError("Entre primeiro com o código compartilhado da unidade.", 401);
     const body = await this.readJson(request);
     const crm = text(body.crm, 5, "CRM");
     if (!/^\d{5}$/.test(crm)) throw new ScaleError("Informe o CRM com exatamente 5 dígitos.");
@@ -38,7 +36,7 @@
     this.sql.exec("DELETE FROM sessions WHERE doctor_id=?", row.id);
     this.sql.exec("INSERT INTO sessions(token_hash,doctor_id,created_at,expires_at) VALUES(?,?,?,?)", tokenHash, row.id, now, now + SESSION_TTL_MS);
     await this.ctx.storage.sync();
-    this.audit("doctor", row.id, "identify_crm", "session", null, null, { crm });
+    this.audit("doctor", row.id, "login_crm", "session", null, null, { crm });
     return json({ session: { role: "doctor", id: row.id, name: row.name, crm } }, 200, { "set-cookie": setCookie(token) });
   }
   async doctorLogout(request) {
