@@ -1,4 +1,4 @@
-function mapDoctor(row) { return { id: row.id, name: row.name, crm: row.crm || row.login || "", active: !!row.active, createdAt: new Date(row.created_at).toISOString() }; }
+function mapDoctor(row) { return { id: row.id, name: row.name, crm: row.crm || row.login || "", doctorType: row.doctor_type || "folha", active: !!row.active, createdAt: new Date(row.created_at).toISOString() }; }
 function mapShift(row) {
   return { id: row.id, date: row.shift_date, start: row.start_time, end: row.end_time, hours: Number(row.hours), doctorId: row.doctor_id,
     plannedDoctorId: row.planned_doctor_id || null, function: row.function_code, category: row.category, source: row.source,
@@ -24,8 +24,11 @@ export class ScaleRoom extends DurableObject {
     const doctorCols = this.sql.exec("PRAGMA table_info(doctors)").toArray();
     if (!doctorCols.some((c) => c.name === "crm")) {
       this.sql.exec("ALTER TABLE doctors ADD COLUMN crm TEXT");
-      this.sql.exec("UPDATE doctors SET crm=login WHERE login GLOB '[0-9][0-9][0-9][0-9][0-9]'");
+      this.sql.exec("UPDATE doctors SET crm=login WHERE login GLOB '[0-9][0-9][0-9][0-9]*'");
       this.sql.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_doctors_crm ON doctors(crm)");
+    }
+    if (!doctorCols.some((c) => c.name === "doctor_type")) {
+      this.sql.exec("ALTER TABLE doctors ADD COLUMN doctor_type TEXT NOT NULL DEFAULT 'folha'");
     }
     this.sql.exec(`CREATE TABLE IF NOT EXISTS sessions (
       token_hash TEXT PRIMARY KEY, doctor_id TEXT NOT NULL, created_at INTEGER NOT NULL, expires_at INTEGER NOT NULL,
