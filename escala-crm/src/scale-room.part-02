@@ -33,6 +33,7 @@
       if (request.method === "POST" && p === "/auth/admin/bootstrap") return await this.adminBootstrap(request);
       if (request.method === "POST" && p === "/auth/admin/login") return await this.adminLogin(request);
       if (request.method === "POST" && p === "/auth/admin/logout") return await this.adminLogout(request);
+      if (request.method === "POST" && p === "/admin/password") return await this.adminChangePassword(request);
       if (request.method === "POST" && p === "/auth/identify") return await this.doctorLogin(request);
       if (request.method === "POST" && p === "/auth/unidentify") return await this.doctorLogout(request);
       if (request.method === "GET" && p === "/session") return this.sessionResponse(request);
