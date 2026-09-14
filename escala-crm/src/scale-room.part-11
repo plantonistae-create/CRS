@@ -1,0 +1,12 @@
+  ensureShift(id){ const r=this.sql.exec("SELECT * FROM shifts WHERE id=?",id).toArray()[0]; if(!r) throw new ScaleError("Plantão não encontrado.",404); return r; }
+  ensureRequest(id){ const r=this.sql.exec("SELECT * FROM requests WHERE id=?",id).toArray()[0]; if(!r) throw new ScaleError("Solicitação não encontrada.",404); return r; }
+  notify(role,doctorId,title,body,kind){ this.sql.exec("INSERT INTO notifications(target_role,target_doctor_id,title,body,kind,created_at,read_at) VALUES(?,?,?,?,?,?,NULL)",role,doctorId,title,body,kind,Date.now()); }
+  audit(role,actorId,action,entityType,entityId,oldValue,newValue){ this.sql.exec("INSERT INTO audit_log(actor_role,actor_id,action,entity_type,entity_id,old_json,new_json,occurred_at) VALUES(?,?,?,?,?,?,?,?)",role,actorId,action,entityType,entityId,oldValue==null?null:JSON.stringify(oldValue),newValue==null?null:JSON.stringify(newValue),Date.now()); }
+  typeLabel(t){ return ({atestado:"Atestado",ausencia:"Ausência / plantão passado",troca:"Troca",pagamento:"Pagamento de horas",extra:"Plantão extra"})[t]||t; }
+  async readJson(request){ try{return await request.json();}catch{throw new ScaleError("Dados inválidos.");} }
+  async commitAndBroadcast(){ await this.ctx.storage.sync(); this.broadcastRefresh(); }
+  broadcastRefresh(){ const msg=JSON.stringify({type:"refresh",at:new Date().toISOString()}); for(const s of this.ctx.getWebSockets()) { try{s.send(msg);}catch{try{s.close(1011,"Falha ao atualizar");}catch{}} } }
+  async connectWs(request,url){ await this.actor(request); if(request.headers.get("upgrade")?.toLowerCase()!=="websocket") throw new ScaleError("WebSocket esperado.",426); const pair=new WebSocketPair(); const client=pair[0],server=pair[1]; this.ctx.acceptWebSocket(server); server.send(JSON.stringify({type:"connected",at:new Date().toISOString()})); return new Response(null,{status:101,webSocket:client}); }
+  webSocketMessage(socket,message){ if(message==="ping") socket.send("pong"); }
+  webSocketClose(socket,code,reason){ try{socket.close(code,reason);}catch{} }
+}
