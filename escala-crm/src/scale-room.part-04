@@ -1,0 +1,63 @@
+    if (doctorOnly) throw new ScaleError("Identifique-se com seu CRM para realizar esta ação.", 403);
+    return viewer;
+  }
+  async sessionResponse(request) {
+    try {
+      const a = await this.actor(request);
+      return json({ session: a.role === "admin" ? { role: "admin", id: "admin", name: a.name } : a.role === "doctor" ? { role: "doctor", id: a.id, name: a.name, crm: a.crm } : { role: "viewer", id: "unit", name: "Escala compartilhada" } });
+    } catch (e) { if (e.status === 401) return json({ error: e.message }, 401); throw e; }
+  }
+  async adminBootstrap(request) {
+    if (this.sql.exec("SELECT id FROM admin_config WHERE id='primary'").toArray()[0]) throw new ScaleError("O acesso administrativo já foi configurado.", 409);
+    const body = await this.readJson(request);
+    const name = text(body.name || "Administrador", 100, "nome") || "Administrador";
+    const accessCode = text(body.accessCode, 80, "código de acesso");
+    if (accessCode.length < 4) throw new ScaleError("O código compartilhado da unidade deve ter pelo menos 4 caracteres.");
+    const salt = hex(crypto.getRandomValues(new Uint8Array(16)));
+    const hash = await passwordHash(body.password, salt);
+    const accessSalt = hex(crypto.getRandomValues(new Uint8Array(16)));
+    const accessHash = await passwordHash(accessCode.padEnd(8, "#"), accessSalt);
+    const now = Date.now();
+    const token = randomToken();
+    const tokenHash = await sha256Hex(token);
+    this.ctx.storage.transactionSync(() => {
+      this.sql.exec("INSERT INTO admin_config(id,name,password_salt,password_hash,created_at,updated_at) VALUES('primary',?,?,?,?,?)", name, salt, hash, now, now);
+      this.sql.exec("INSERT INTO unit_access(id,password_salt,password_hash,created_at,updated_at) VALUES('primary',?,?,?,?)", accessSalt, accessHash, now, now);
+      this.sql.exec("INSERT INTO admin_sessions(token_hash,created_at,expires_at) VALUES(?,?,?)", tokenHash, now, now + SESSION_TTL_MS);
+    });
+    this.audit("admin", "admin", "bootstrap", "admin", "primary", null, { name });
+    await this.commitAndBroadcast();
+    return json({ session: { role: "admin", id: "admin", name } }, 201, { "set-cookie": setCookie(token, Math.floor(SESSION_TTL_MS/1000), ADMIN_SESSION_COOKIE) });
+  }
+  async unitLogin(request) {
+    const cfg = this.sql.exec("SELECT * FROM unit_access WHERE id='primary'").toArray()[0];
+    if (!cfg) throw new ScaleError("O acesso compartilhado ainda não foi configurado pelo administrador.", 409);
+    const body = await this.readJson(request);
+    const code = text(body.accessCode, 80, "código de acesso");
+    const got = await passwordHash(code.padEnd(8, "#"), cfg.password_salt);
+    if (got !== cfg.password_hash) throw new ScaleError("Código de acesso da unidade incorreto.", 401);
+    const token = randomToken(), tokenHash = await sha256Hex(token), now = Date.now();
+    this.sql.exec("DELETE FROM viewer_sessions WHERE expires_at<=?", now);
+    this.sql.exec("INSERT INTO viewer_sessions(token_hash,created_at,expires_at) VALUES(?,?,?)", tokenHash, now, now + SESSION_TTL_MS);
+    await this.ctx.storage.sync();
+    return json({ session: { role: "viewer", id: "unit", name: "Escala compartilhada" } }, 200, { "set-cookie": setCookie(token, Math.floor(SESSION_TTL_MS/1000), VIEWER_SESSION_COOKIE) });
+  }
+  async unitLogout(request) {
+    const viewerToken = cookieValue(request, VIEWER_SESSION_COOKIE);
+    const doctorToken = cookieValue(request, SESSION_COOKIE);
+    if (viewerToken) this.sql.exec("DELETE FROM viewer_sessions WHERE token_hash=?", await sha256Hex(viewerToken));
+    if (doctorToken) this.sql.exec("DELETE FROM sessions WHERE token_hash=?", await sha256Hex(doctorToken));
+    await this.ctx.storage.sync();
+    const headers = new Headers();
+    headers.append("set-cookie", clearCookie(SESSION_COOKIE));
+    headers.append("set-cookie", clearCookie(VIEWER_SESSION_COOKIE));
+    return json({ ok: true }, 200, headers);
+  }
+  async adminSetUnitAccess(request) {
+    const actor = await this.actor(request, { adminOnly: true });
+    const body = await this.readJson(request);
+    const code = text(body.accessCode, 80, "código de acesso");
+    if (code.length < 4) throw new ScaleError("O código compartilhado deve ter pelo menos 4 caracteres.");
+    const salt = hex(crypto.getRandomValues(new Uint8Array(16)));
+    const hash = await passwordHash(code.padEnd(8, "#"), salt);
+    const now = Date.now();
