@@ -1,10 +1,10 @@
 const $=(s,r=document)=>r.querySelector(s), $$=(s,r=document)=>[...r.querySelectorAll(s)];
-const state={month:new Date().toISOString().slice(0,7),session:null,data:null,route:'login',loginMode:'unit',ws:null,lastUnread:0,adminConfigured:null,unitAccessConfigured:null};
+const state={month:new Date().toISOString().slice(0,7),session:null,data:null,route:'login',loginMode:'unit',ws:null,lastUnread:0,adminConfigured:null,unitAccessConfigured:null,requestDraft:null};
 const FN={emergencia_enfermaria:'Emergência + Enfermaria',fichas:'Fichas',enfermaria:'Enfermaria',cinderela:'Cinderela'};
 const CAT={fixo:'Fixo',eventual:'Eventual',pagamento:'Pagamento de horas'};
-const TYPE={atestado:'Atestado',ausencia:'Ausência / plantão passado',troca:'Troca',pagamento:'Pagamento de horas',extra:'Plantão extra'};
+const TYPE={atestado:'Atestado',ausencia:'Ausência / passar plantão',troca:'Troca',pagamento:'Pagamento de horas',extra:'Plantão extra'};
 const DAYS=['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
-function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[c]));}
 function fmtDate(v){if(!v)return '—';const [y,m,d]=v.slice(0,10).split('-');return `${d}/${m}/${y}`;}
 function fmtTs(v){return v?new Date(v).toLocaleString('pt-BR',{timeZone:'America/Campo_Grande'}):'—';}
 function monthLabel(m){const [y,mo]=m.split('-').map(Number);return new Intl.DateTimeFormat('pt-BR',{month:'long',year:'numeric'}).format(new Date(y,mo-1,1));}
