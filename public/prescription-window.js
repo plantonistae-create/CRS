@@ -15,7 +15,7 @@
     let u = new URL(url, location.href);
     const duplicateLatest = u.searchParams.get('duplicateLatest') === '1';
     const latestOnly = u.searchParams.get('latestOnly') === '1';
-    u.pathname = (duplicateLatest || latestOnly) ? '/prescricao/duplicate-latest.html' : '/prescricao/crs-v4.html';
+    u.pathname = (duplicateLatest || latestOnly) ? '/prescricao/duplicate-latest.html' : '/prescricao/crs-v5.html';
     let overlay = document.getElementById('crs-prescription-overlay');
     if (!overlay) {
       overlay = document.createElement('div');
