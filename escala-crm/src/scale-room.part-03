@@ -1,0 +1,75 @@
+      if (request.method === "POST" && p === "/admin/generate-month") return await this.adminGenerateMonth(request);
+      if (request.method === "POST" && p === "/admin/shifts") return await this.adminAddShift(request);
+      const shiftReplace = p.match(/^\/admin\/shifts\/([^/]+)\/replace$/);
+      if (request.method === "POST" && shiftReplace) return await this.adminReplaceShift(request, shiftReplace[1]);
+      const shiftRemove = p.match(/^\/admin\/shifts\/([^/]+)\/remove$/);
+      if (request.method === "POST" && shiftRemove) return await this.adminRemoveShift(request, shiftRemove[1]);
+      if (request.method === "POST" && p === "/admin/records") return await this.adminRecord(request);
+
+      if (request.method === "POST" && p === "/requests") return await this.createRequest(request);
+      const peer = p.match(/^\/requests\/([^/]+)\/peer$/);
+      if (request.method === "POST" && peer) return await this.peerDecision(request, peer[1]);
+      const decide = p.match(/^\/admin\/requests\/([^/]+)\/decide$/);
+      if (request.method === "POST" && decide) return await this.adminDecision(request, decide[1]);
+      const readNotif = p.match(/^\/notifications\/(\d+)\/read$/);
+      if (request.method === "POST" && readNotif) return await this.readNotification(request, Number(readNotif[1]));
+
+      const access = p.match(/^\/requests\/([^/]+)\/attachment-access$/);
+      if (request.method === "GET" && access) return json(await this.attachmentAccess(request, access[1]));
+      const link = p.match(/^\/requests\/([^/]+)\/attachment-record$/);
+      if (request.method === "POST" && link) return await this.attachmentRecord(request, link[1]);
+      throw new ScaleError("Rota de escala não encontrada.", 404);
+    } catch (e) {
+      if (e instanceof ScaleError) return json({ error: e.message }, e.status);
+      console.error("scale-room-error", e);
+      return json({ error: "Não foi possível concluir a operação da escala." }, 500);
+    }
+  }
+
+  adminStatus() {
+    const configured = !!this.sql.exec("SELECT id FROM admin_config WHERE id='primary'").toArray()[0];
+    const unitAccessConfigured = !!this.sql.exec("SELECT id FROM unit_access WHERE id='primary'").toArray()[0];
+    return json({ configured, unitAccessConfigured });
+  }
+  async adminFromRequest(request) {
+    const token = cookieValue(request, ADMIN_SESSION_COOKIE);
+    if (!token) return null;
+    const tokenHash = await sha256Hex(token);
+    const now = Date.now();
+    const row = this.sql.exec("SELECT * FROM admin_sessions WHERE token_hash=? AND expires_at>?", tokenHash, now).toArray()[0];
+    if (!row) return null;
+    const cfg = this.sql.exec("SELECT name FROM admin_config WHERE id='primary'").toArray()[0];
+    return { role: "admin", id: "admin", doctorId: null, name: cfg?.name || "Administrador" };
+  }
+  async doctorFromRequest(request) {
+    const token = cookieValue(request, SESSION_COOKIE);
+    if (!token) return null;
+    const tokenHash = await sha256Hex(token);
+    const now = Date.now();
+    const row = this.sql.exec(`SELECT s.*,d.name,d.login,d.crm,d.active FROM sessions s JOIN doctors d ON d.id=s.doctor_id
+      WHERE s.token_hash=? AND s.expires_at>?`, tokenHash, now).toArray()[0];
+    if (!row || !row.active) return null;
+    return { role: "doctor", id: row.doctor_id, doctorId: row.doctor_id, name: row.name, crm: row.crm || row.login };
+  }
+  async viewerFromRequest(request) {
+    const token = cookieValue(request, VIEWER_SESSION_COOKIE);
+    if (!token) return null;
+    const tokenHash = await sha256Hex(token);
+    const now = Date.now();
+    const row = this.sql.exec("SELECT * FROM viewer_sessions WHERE token_hash=? AND expires_at>?", tokenHash, now).toArray()[0];
+    return row ? { role: "viewer", id: "unit", doctorId: null, name: "Acesso da unidade" } : null;
+  }
+  async actor(request, { adminOnly = false, doctorOnly = false } = {}) {
+    const admin = await this.adminFromRequest(request);
+    if (admin) {
+      if (doctorOnly) throw new ScaleError("Esta ação é exclusiva do médico.", 403);
+      return admin;
+    }
+    const doctor = await this.doctorFromRequest(request);
+    if (doctor) {
+      if (adminOnly) throw new ScaleError("Acesso administrativo necessário.", 403);
+      return doctor;
+    }
+    const viewer = await this.viewerFromRequest(request);
+    if (!viewer) throw new ScaleError("Informe o código de acesso da unidade para continuar.", 401);
+    if (adminOnly) throw new ScaleError("Acesso administrativo necessário.", 403);
