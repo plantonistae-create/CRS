@@ -28,7 +28,7 @@
   async doctorLogin(request) {
     const body = await this.readJson(request);
     const crm = text(body.crm, 5, "CRM");
-    if (!/^\d{5}$/.test(crm)) throw new ScaleError("Informe o CRM com exatamente 5 dígitos.");
+    if (!/^\d{4,5}$/.test(crm)) throw new ScaleError("Informe o CRM com 4 ou 5 dígitos, somente números.");
     const row = this.sql.exec("SELECT * FROM doctors WHERE crm=? AND active=1", crm).toArray()[0];
     if (!row) throw new ScaleError("CRM não cadastrado na escala.", 401);
     const token = randomToken(); const tokenHash = await sha256Hex(token); const now = Date.now();
