@@ -77,9 +77,13 @@ async function passwordHash(password, saltHex) {
   const pass = String(password || "");
   if (pass.length < 8 || pass.length > 100) throw new ScaleError("A senha deve ter entre 8 e 100 caracteres.");
   const salt = Uint8Array.from(saltHex.match(/../g) || [], (x) => parseInt(x, 16));
-  const key = await crypto.subtle.importKey("raw", enc.encode(pass), "PBKDF2", false, ["deriveBits"]);
-  const bits = await crypto.subtle.deriveBits({ name: "PBKDF2", hash: "SHA-256", salt, iterations: 120000 }, key, 256);
-  return hex(new Uint8Array(bits));
+  try {
+    const key = await crypto.subtle.importKey("raw", enc.encode(pass), "PBKDF2", false, ["deriveBits"]);
+    const bits = await crypto.subtle.deriveBits({ name: "PBKDF2", hash: "SHA-256", salt, iterations: 20000 }, key, 256);
+    return hex(new Uint8Array(bits));
+  } catch (e) {
+    throw new ScaleError(`Falha ao proteger a senha: ${e?.message || "erro criptográfico"}.`, 500);
+  }
 }
 function cookieValue(request, name) {
   const raw = request.headers.get("cookie") || "";
