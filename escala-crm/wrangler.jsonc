@@ -1,0 +1,17 @@
+{
+  "$schema":"node_modules/wrangler/config-schema.json",
+  "name":"escala-medica-cs-coophavila",
+  "main":"src/scale-entry.js",
+  "compatibility_date":"2026-09-06",
+  "workers_dev":true,
+  "assets":{"directory":"./public","binding":"ASSETS","not_found_handling":"single-page-application"},
+  "durable_objects":{"bindings":[
+    {"name":"SCALE_ROOM","class_name":"ScaleRoom"},
+    {"name":"SCALE_FILES","class_name":"ScaleFileStore"}
+  ]},
+  "exports":{
+    "ScaleRoom":{"type":"durable-object","storage":"sqlite"},
+    "ScaleFileStore":{"type":"durable-object","storage":"sqlite"}
+  },
+  "observability":{"enabled":true}
+}
