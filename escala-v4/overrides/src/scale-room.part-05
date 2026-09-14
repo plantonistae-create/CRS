@@ -1,0 +1,62 @@
+    this.sql.exec(`INSERT INTO unit_access(id,password_salt,password_hash,created_at,updated_at) VALUES('primary',?,?,?,?)
+      ON CONFLICT(id) DO UPDATE SET password_salt=excluded.password_salt,password_hash=excluded.password_hash,updated_at=excluded.updated_at`,
+      salt, hash, now, now);
+    this.sql.exec("DELETE FROM viewer_sessions");
+    this.audit(actor.role, actor.id, "unit_access_reset", "access", "primary", null, { changedAt: now });
+    await this.commitAndBroadcast();
+    return json({ ok: true });
+  }
+  async adminLogin(request) {
+    const cfg = this.sql.exec("SELECT * FROM admin_config WHERE id='primary'").toArray()[0];
+    if (!cfg) throw new ScaleError("Primeiro acesso: configure a senha administrativa.", 409);
+    const body = await this.readJson(request);
+    const got = await passwordHash(body.password, cfg.password_salt);
+    if (got !== cfg.password_hash) throw new ScaleError("Senha administrativa incorreta.", 401);
+    const token = randomToken(); const tokenHash = await sha256Hex(token); const now = Date.now();
+    this.sql.exec("DELETE FROM admin_sessions WHERE expires_at<=?", now);
+    this.sql.exec("INSERT INTO admin_sessions(token_hash,created_at,expires_at) VALUES(?,?,?)", tokenHash, now, now + SESSION_TTL_MS);
+    this.audit("admin", "admin", "login", "session", null, null, {});
+    await this.ctx.storage.sync();
+    return json({ session: { role: "admin", id: "admin", name: cfg.name } }, 200, { "set-cookie": setCookie(token, Math.floor(SESSION_TTL_MS/1000), ADMIN_SESSION_COOKIE) });
+  }
+  async adminLogout(request) {
+    const token = cookieValue(request, ADMIN_SESSION_COOKIE);
+    if (token) this.sql.exec("DELETE FROM admin_sessions WHERE token_hash=?", await sha256Hex(token));
+    await this.ctx.storage.sync();
+    return json({ ok: true }, 200, { "set-cookie": clearCookie(ADMIN_SESSION_COOKIE) });
+  }
+  async doctorLogin(request) {
+    const body = await this.readJson(request);
+    const crm = text(body.crm, 5, "CRM");
+    if (!/^\d{5}$/.test(crm)) throw new ScaleError("Informe o CRM com exatamente 5 dígitos.");
+    const row = this.sql.exec("SELECT * FROM doctors WHERE crm=? AND active=1", crm).toArray()[0];
+    if (!row) throw new ScaleError("CRM não cadastrado na escala.", 401);
+    const token = randomToken(); const tokenHash = await sha256Hex(token); const now = Date.now();
+    this.sql.exec("DELETE FROM sessions WHERE expires_at<=?", now);
+    this.sql.exec("DELETE FROM sessions WHERE doctor_id=?", row.id);
+    this.sql.exec("INSERT INTO sessions(token_hash,doctor_id,created_at,expires_at) VALUES(?,?,?,?)", tokenHash, row.id, now, now + SESSION_TTL_MS);
+    await this.ctx.storage.sync();
+    this.audit("doctor", row.id, "login_crm", "session", null, null, { crm });
+    return json({ session: { role: "doctor", id: row.id, name: row.name, crm } }, 200, { "set-cookie": setCookie(token) });
+  }
+  async doctorLogout(request) {
+    const token = cookieValue(request, SESSION_COOKIE);
+    if (token) this.sql.exec("DELETE FROM sessions WHERE token_hash=?", await sha256Hex(token));
+    await this.ctx.storage.sync();
+    return json({ ok: true }, 200, { "set-cookie": clearCookie() });
+  }
+
+  doctorRows() { return this.sql.exec("SELECT * FROM doctors ORDER BY active DESC,name COLLATE NOCASE").toArray(); }
+  templateRows() { return this.sql.exec("SELECT * FROM weekly_template ORDER BY weekday,start_time,doctor_id").toArray(); }
+  shiftsForMonth(month) { return this.sql.exec("SELECT * FROM shifts WHERE shift_date LIKE ? ORDER BY shift_date,start_time,end_time,doctor_id", `${month}-%`).toArray(); }
+  extraUsed(date, excludeShiftId = null) {
+    const row = excludeShiftId
+      ? this.sql.exec("SELECT COALESCE(SUM(hours),0) AS h FROM shifts WHERE shift_date=? AND active=1 AND category<>'fixo' AND id<>?", date, excludeShiftId).one()
+      : this.sql.exec("SELECT COALESCE(SUM(hours),0) AS h FROM shifts WHERE shift_date=? AND active=1 AND category<>'fixo'", date).one();
+    return Math.round(Number(row.h || 0) * 100) / 100;
+  }
+  assertExtraCapacity(date, hours, excludeShiftId = null) {
+    const used = this.extraUsed(date, excludeShiftId);
+    if (used + Number(hours) > EXTRA_DAILY_LIMIT + 1e-9) throw new ScaleError(`Limite diário excedido: ${used}h já lançadas de ${EXTRA_DAILY_LIMIT}h.`, 409);
+  }
+  publicState(month) {
