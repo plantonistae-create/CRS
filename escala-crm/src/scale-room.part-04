@@ -11,22 +11,37 @@
     if (this.sql.exec("SELECT id FROM admin_config WHERE id='primary'").toArray()[0]) throw new ScaleError("O acesso administrativo já foi configurado.", 409);
     const body = await this.readJson(request);
     const name = text(body.name || "Administrador", 100, "nome") || "Administrador";
+    const password = String(body.password || "");
+    if (password.length < 8 || password.length > 100) throw new ScaleError("A senha administrativa deve ter entre 8 e 100 caracteres.");
     const accessCode = text(body.accessCode, 80, "código de acesso");
     if (accessCode.length < 4) throw new ScaleError("O código compartilhado da unidade deve ter pelo menos 4 caracteres.");
     const salt = hex(crypto.getRandomValues(new Uint8Array(16)));
-    const hash = await passwordHash(body.password, salt);
+    const hash = await passwordHash(password, salt);
     const accessSalt = hex(crypto.getRandomValues(new Uint8Array(16)));
     const accessHash = await passwordHash(accessCode.padEnd(8, "#"), accessSalt);
     const now = Date.now();
     const token = randomToken();
     const tokenHash = await sha256Hex(token);
-    this.ctx.storage.transactionSync(() => {
-      this.sql.exec("INSERT INTO admin_config(id,name,password_salt,password_hash,created_at,updated_at) VALUES('primary',?,?,?,?,?)", name, salt, hash, now, now);
-      this.sql.exec("INSERT INTO unit_access(id,password_salt,password_hash,created_at,updated_at) VALUES('primary',?,?,?,?)", accessSalt, accessHash, now, now);
-      this.sql.exec("INSERT INTO admin_sessions(token_hash,created_at,expires_at) VALUES(?,?,?)", tokenHash, now, now + SESSION_TTL_MS);
-    });
-    this.audit("admin", "admin", "bootstrap", "admin", "primary", null, { name });
-    await this.commitAndBroadcast();
+    try {
+      this.ctx.storage.transactionSync(() => {
+        this.sql.exec("INSERT INTO admin_config(id,name,password_salt,password_hash,created_at,updated_at) VALUES('primary',?,?,?,?,?)", name, salt, hash, now, now);
+        this.sql.exec("INSERT INTO unit_access(id,password_salt,password_hash,created_at,updated_at) VALUES('primary',?,?,?,?)", accessSalt, accessHash, now, now);
+        this.sql.exec("INSERT INTO admin_sessions(token_hash,created_at,expires_at) VALUES(?,?,?)", tokenHash, now, now + SESSION_TTL_MS);
+        this.audit("admin", "admin", "bootstrap", "admin", "primary", null, { name });
+      });
+      await this.ctx.storage.sync();
+    } catch (e) {
+      console.error("admin-bootstrap-error", e);
+      const configured = !!this.sql.exec("SELECT id FROM admin_config WHERE id='primary'").toArray()[0];
+      const unitConfigured = !!this.sql.exec("SELECT id FROM unit_access WHERE id='primary'").toArray()[0];
+      if (!configured || !unitConfigured) {
+        try { this.sql.exec("DELETE FROM admin_sessions WHERE token_hash=?", tokenHash); } catch {}
+        try { this.sql.exec("DELETE FROM unit_access WHERE id='primary'"); } catch {}
+        try { this.sql.exec("DELETE FROM admin_config WHERE id='primary'"); } catch {}
+        throw new ScaleError("Não foi possível criar o administrador. Tente novamente em instantes.", 500);
+      }
+    }
+    this.broadcastRefresh();
     return json({ session: { role: "admin", id: "admin", name } }, 201, { "set-cookie": setCookie(token, Math.floor(SESSION_TTL_MS/1000), ADMIN_SESSION_COOKIE) });
   }
   async unitLogin(request) {
