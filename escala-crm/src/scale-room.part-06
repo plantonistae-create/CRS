@@ -1,0 +1,47 @@
+    const doctors = Object.fromEntries(this.doctorRows().filter((d) => d.active).map((d) => [d.id, { id: d.id, name: d.name }]));
+    const shifts = this.shiftsForMonth(month).filter((s) => s.active).map(mapShift);
+    const [year, monthNumber] = month.split("-").map(Number);
+    const dayCount = new Date(Date.UTC(year, monthNumber, 0)).getUTCDate();
+    const dates = {};
+    for (let day = 1; day <= dayCount; day += 1) {
+      const date = `${month}-${String(day).padStart(2, "0")}`;
+      dates[date] = { usedExtraHours: 0, availableExtraHours: EXTRA_DAILY_LIMIT };
+    }
+    for (const s of shifts) {
+      if (!dates[s.date]) dates[s.date] = { usedExtraHours: 0, availableExtraHours: EXTRA_DAILY_LIMIT };
+      if (s.category !== "fixo") dates[s.date].usedExtraHours += Number(s.hours);
+    }
+    for (const v of Object.values(dates)) {
+      v.usedExtraHours = Math.round(v.usedExtraHours * 100) / 100;
+      v.availableExtraHours = Math.max(0, Math.round((EXTRA_DAILY_LIMIT - v.usedExtraHours) * 100) / 100);
+    }
+    return { unit: "CS Coophavila", month, extraDailyLimit: EXTRA_DAILY_LIMIT, doctors, shifts, dates, updatedAt: new Date().toISOString() };
+  }
+  async privateState(request, month) {
+    const actor = await this.actor(request);
+    const pub = this.publicState(month);
+    if (actor.role === "viewer") {
+      return { ...pub, session: { role: "viewer", id: "unit", name: "Escala compartilhada" } };
+    }
+    if (actor.role === "doctor") {
+      const requests = this.sql.exec("SELECT * FROM requests WHERE doctor_id=? OR target_doctor_id=? ORDER BY submitted_at DESC LIMIT 200", actor.id, actor.id).toArray().map(mapRequest);
+      const notifications = this.sql.exec("SELECT * FROM notifications WHERE target_doctor_id=? ORDER BY created_at DESC LIMIT 100", actor.id).toArray();
+      const summary = this.doctorSummary(actor.id, month);
+      return { ...pub, session: { role: "doctor", id: actor.id, name: actor.name }, myRequests: requests, notifications, mySummary: summary };
+    }
+    const requests = this.sql.exec("SELECT * FROM requests ORDER BY submitted_at DESC LIMIT 500").toArray().map(mapRequest);
+    const notifications = this.sql.exec("SELECT * FROM notifications WHERE target_role='admin' ORDER BY created_at DESC LIMIT 200").toArray();
+    const doctors = this.doctorRows().map(mapDoctor);
+    const templates = this.templateRows().map((r) => ({ id: r.id, weekday: Number(r.weekday), start: r.start_time, end: r.end_time, hours: Number(r.hours), doctorId: r.doctor_id, function: r.function_code, category: r.category }));
+    const summaries = doctors.filter((d) => d.active).map((d) => this.doctorSummary(d.id, month));
+    const audit = this.sql.exec("SELECT * FROM audit_log ORDER BY occurred_at DESC,id DESC LIMIT 300").toArray().map((r) => ({ id: Number(r.id), actorRole: r.actor_role, actorId: r.actor_id, action: r.action, entityType: r.entity_type, entityId: r.entity_id, old: safeJson(r.old_json), current: safeJson(r.new_json), occurredAt: new Date(r.occurred_at).toISOString() }));
+    return { ...pub, session: { role: "admin", id: "admin", name: "Administrador" }, doctorsList: doctors, templates, requests, notifications, summaries, audit };
+  }
+  doctorSummary(doctorId, month) {
+    const planned = Number(this.sql.exec("SELECT COALESCE(SUM(hours),0) h FROM shifts WHERE planned_doctor_id=? AND shift_date LIKE ?", doctorId, `${month}-%`).one().h || 0);
+    const att = Number(this.sql.exec("SELECT COALESCE(SUM(hours),0) h FROM certificates WHERE doctor_id=? AND event_date LIKE ?", doctorId, `${month}-%`).one().h || 0);
+    const debt = Number(this.sql.exec("SELECT COALESCE(SUM(hours),0) h FROM compensation WHERE doctor_id=? AND kind='debt' AND event_date LIKE ?", doctorId, `${month}-%`).one().h || 0);
+    const paid = Number(this.sql.exec("SELECT COALESCE(SUM(hours),0) h FROM compensation WHERE doctor_id=? AND kind='paid' AND event_date LIKE ?", doctorId, `${month}-%`).one().h || 0);
+    const extra = Number(this.sql.exec("SELECT COALESCE(SUM(hours),0) h FROM shifts WHERE doctor_id=? AND category<>'fixo' AND active=1 AND shift_date LIKE ?", doctorId, `${month}-%`).one().h || 0);
+    const doc = this.sql.exec("SELECT name FROM doctors WHERE id=?", doctorId).toArray()[0];
+    const pct = planned > 0 ? Math.round((att / planned) * 1000) / 10 : 0;
