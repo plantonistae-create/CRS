@@ -1,0 +1,77 @@
+name: Deploy Escala Medica CS Coophavila
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'escala-standalone/**'
+      - '.github/workflows/deploy-escala-standalone.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Rebuild and validate standalone Escala
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/escala-app /tmp/escala.tgz /tmp/escala.b64
+          mkdir -p /tmp/escala-app
+          cat escala-standalone/bundle.part-* > /tmp/escala.b64
+          base64 -d /tmp/escala.b64 > /tmp/escala.tgz
+          echo 'ae102ecb2f293061a44e5bb2239c20fb528d7ad8ccec61ea98aa622e475b00ee  /tmp/escala.tgz' | sha256sum -c -
+          tar -xzf /tmp/escala.tgz -C /tmp/escala-app
+          node --check /tmp/escala-app/src/scale-room.js
+          node --check /tmp/escala-app/src/scale-entry.js
+          node --check /tmp/escala-app/src/scale-file-store.js
+          node --check /tmp/escala-app/public/escala.js
+          grep -q 'EXTRA_DAILY_LIMIT = 96' /tmp/escala-app/src/scale-room.js
+          grep -q 'Cinderela deve ser lançado obrigatoriamente' /tmp/escala-app/src/scale-room.js
+          grep -q 'attestationLimitHours' /tmp/escala-app/src/scale-room.js
+          grep -q 'Pagamento de horas' /tmp/escala-app/public/escala.js
+          grep -q 'name":"escala-medica-cs-coophavila' /tmp/escala-app/wrangler.jsonc
+          echo 'standalone escala bundle validated'
+
+      - name: Deploy standalone Escala Worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -euo pipefail
+          cd /tmp/escala-app
+          npx --yes wrangler@latest deploy
+
+      - name: Smoke test standalone Escala
+        run: |
+          set -euo pipefail
+          BASE='https://escala-medica-cs-coophavila.crs-coophavila.workers.dev'
+          for attempt in 1 2 3 4 5; do
+            if curl --fail --silent --show-error --max-time 20 "$BASE/api/health" -o /tmp/escala-health.json; then
+              break
+            fi
+            if [ "$attempt" = '5' ]; then
+              echo 'Escala health endpoint did not become available.' >&2
+              exit 1
+            fi
+            sleep 3
+          done
+          node -e "const fs=require('fs');const x=JSON.parse(fs.readFileSync('/tmp/escala-health.json','utf8'));if(!x.ok||x.site!=='escala-medica-cs-coophavila'||x.storage!=='durable-object-sqlite'||x.realtime!=='websocket')process.exit(1);console.log('health ok',x);"
+          curl --fail --silent --show-error --max-time 20 "$BASE/" -o /tmp/escala-index.html
+          grep -q 'CS Coophavila · Escala Médica' /tmp/escala-index.html
+          curl --fail --silent --show-error --max-time 20 "$BASE/api/auth/admin/status" -o /tmp/admin-status.json
+          node -e "const fs=require('fs');const x=JSON.parse(fs.readFileSync('/tmp/admin-status.json','utf8'));if(typeof x.configured!=='boolean')process.exit(1);console.log('admin status ok',x);"
+          code=$(curl --silent --output /tmp/no-session.json --write-out '%{http_code}' --max-time 20 "$BASE/api/session")
+          test "$code" = '401'
+          echo 'standalone escala production smoke test passed'
