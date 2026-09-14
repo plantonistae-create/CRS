@@ -19,6 +19,26 @@
     await this.ctx.storage.sync();
     return json({ session: { role: "admin", id: "admin", name: cfg.name } }, 200, { "set-cookie": setCookie(token, Math.floor(SESSION_TTL_MS/1000), ADMIN_SESSION_COOKIE) });
   }
+  async adminChangePassword(request) {
+    const actor = await this.actor(request, { adminOnly: true });
+    const body = await this.readJson(request);
+    const currentPassword = String(body.currentPassword || "");
+    const newPassword = String(body.newPassword || "");
+    const confirmPassword = String(body.confirmPassword || "");
+    if (newPassword !== confirmPassword) throw new ScaleError("A confirmação da nova senha não coincide.");
+    if (newPassword.length < 8 || newPassword.length > 100) throw new ScaleError("A nova senha deve ter entre 8 e 100 caracteres.");
+    const cfg = this.sql.exec("SELECT * FROM admin_config WHERE id='primary'").toArray()[0];
+    if (!cfg) throw new ScaleError("Administrador não configurado.", 409);
+    const currentHash = await passwordHash(currentPassword, cfg.password_salt);
+    if (currentHash !== cfg.password_hash) throw new ScaleError("Senha atual incorreta.", 401);
+    const salt = hex(crypto.getRandomValues(new Uint8Array(16)));
+    const hash = await passwordHash(newPassword, salt);
+    const now = Date.now();
+    this.sql.exec("UPDATE admin_config SET password_salt=?,password_hash=?,updated_at=? WHERE id='primary'", salt, hash, now);
+    this.audit(actor.role, actor.id, "password_change", "admin", "primary", null, { changedAt: now });
+    await this.ctx.storage.sync();
+    return json({ ok: true });
+  }
   async adminLogout(request) {
     const token = cookieValue(request, ADMIN_SESSION_COOKIE);
     if (token) this.sql.exec("DELETE FROM admin_sessions WHERE token_hash=?", await sha256Hex(token));
