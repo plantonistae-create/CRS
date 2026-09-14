@@ -30,13 +30,14 @@ jobs:
           cat escala-crm/src/scale-room.part-* > /tmp/escala-app/src/scale-room.js
           cat escala-crm/public/escala-js.part-* > /tmp/escala-app/public/escala.js
           cp escala-crm/src/scale-entry.js escala-crm/src/scale-file-store.js /tmp/escala-app/src/
-          cp escala-crm/public/escala.html escala-crm/public/index.html escala-crm/public/escala.css escala-crm/public/escala-sw.js escala-crm/public/escala-manifest.json escala-crm/public/crm-format-patch.js /tmp/escala-app/public/
+          cp escala-crm/public/escala.html escala-crm/public/index.html escala-crm/public/escala.css escala-crm/public/ux-v11.css escala-crm/public/ux-v11.js escala-crm/public/escala-sw.js escala-crm/public/escala-manifest.json escala-crm/public/crm-format-patch.js /tmp/escala-app/public/
           cp escala-crm/wrangler.jsonc /tmp/escala-app/
           node --check /tmp/escala-app/src/scale-room.js
           node --check /tmp/escala-app/src/scale-entry.js
           node --check /tmp/escala-app/src/scale-file-store.js
           node --check /tmp/escala-app/public/escala.js
           node --check /tmp/escala-app/public/crm-format-patch.js
+          node --check /tmp/escala-app/public/ux-v11.js
           grep -q 'EXTRA_DAILY_LIMIT = 96' /tmp/escala-app/src/scale-room.js
           grep -q 'VIEWER_SESSION_COOKIE' /tmp/escala-app/src/scale-room.js
           grep -q 'CRM com 4 ou 5 dígitos' /tmp/escala-app/src/scale-room.js
@@ -44,7 +45,10 @@ jobs:
           grep -q 'Código compartilhado da unidade' /tmp/escala-app/public/escala.js
           grep -q 'Cinderela deve ser lançado obrigatoriamente' /tmp/escala-app/src/scale-room.js
           grep -q 'somente números' /tmp/escala-app/public/crm-format-patch.js
-          echo 'Escala CRM validada'
+          grep -q 'setEscalaTheme' /tmp/escala-app/public/ux-v11.js
+          grep -q 'compact-calendar' /tmp/escala-app/public/ux-v11.js
+          grep -q 'Substituir plantonista' /tmp/escala-app/public/ux-v11.js
+          echo 'Escala CRM v11 validada'
       - name: Deploy Escala Worker
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -62,11 +66,15 @@ jobs:
             sleep 3
           done
           node -e "const fs=require('fs');const x=JSON.parse(fs.readFileSync('/tmp/health.json','utf8'));if(!x.ok||x.site!=='escala-medica-cs-coophavila')process.exit(1)"
-          curl --fail --silent --show-error --max-time 20 "$BASE/escala.js?v=7" -o /tmp/escala.js
+          curl --fail --silent --show-error --max-time 20 "$BASE/escala.js?v=11" -o /tmp/escala.js
           grep -q 'Código compartilhado da unidade' /tmp/escala.js
-          curl --fail --silent --show-error --max-time 20 "$BASE/crm-format-patch.js?v=7" -o /tmp/crm-format-patch.js
+          curl --fail --silent --show-error --max-time 20 "$BASE/crm-format-patch.js?v=11" -o /tmp/crm-format-patch.js
           grep -q '4 ou 5 dígitos' /tmp/crm-format-patch.js
-          grep -q 'somente números' /tmp/crm-format-patch.js
+          curl --fail --silent --show-error --max-time 20 "$BASE/ux-v11.js?v=11" -o /tmp/ux-v11.js
+          grep -q 'Substituir plantonista' /tmp/ux-v11.js
+          grep -q 'setEscalaTheme' /tmp/ux-v11.js
+          curl --fail --silent --show-error --max-time 20 "$BASE/ux-v11.css?v=11" -o /tmp/ux-v11.css
+          grep -q 'data-theme="light"' /tmp/ux-v11.css
           curl --fail --silent --show-error --max-time 20 "$BASE/api/auth/admin/status" -o /tmp/status.json
           node -e "const fs=require('fs');const x=JSON.parse(fs.readFileSync('/tmp/status.json','utf8'));if(typeof x.configured!=='boolean'||typeof x.unitAccessConfigured!=='boolean')process.exit(1)"
-          echo 'Escala CRM production smoke test passed'
+          echo 'Escala CRM v11 production smoke test passed'
