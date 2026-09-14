@@ -23,23 +23,18 @@
     const token = randomToken();
     const tokenHash = await sha256Hex(token);
     try {
-      this.ctx.storage.transactionSync(() => {
-        this.sql.exec("INSERT INTO admin_config(id,name,password_salt,password_hash,created_at,updated_at) VALUES('primary',?,?,?,?,?)", name, salt, hash, now, now);
-        this.sql.exec("INSERT INTO unit_access(id,password_salt,password_hash,created_at,updated_at) VALUES('primary',?,?,?,?)", accessSalt, accessHash, now, now);
-        this.sql.exec("INSERT INTO admin_sessions(token_hash,created_at,expires_at) VALUES(?,?,?)", tokenHash, now, now + SESSION_TTL_MS);
-        this.audit("admin", "admin", "bootstrap", "admin", "primary", null, { name });
-      });
+      this.sql.exec("INSERT INTO admin_config(id,name,password_salt,password_hash,created_at,updated_at) VALUES('primary',?,?,?,?,?)", name, salt, hash, now, now);
+      this.sql.exec("INSERT INTO unit_access(id,password_salt,password_hash,created_at,updated_at) VALUES('primary',?,?,?,?)", accessSalt, accessHash, now, now);
+      this.sql.exec("INSERT INTO admin_sessions(token_hash,created_at,expires_at) VALUES(?,?,?)", tokenHash, now, now + SESSION_TTL_MS);
+      this.audit("admin", "admin", "bootstrap", "admin", "primary", null, { name });
       await this.ctx.storage.sync();
     } catch (e) {
       console.error("admin-bootstrap-error", e);
-      const configured = !!this.sql.exec("SELECT id FROM admin_config WHERE id='primary'").toArray()[0];
-      const unitConfigured = !!this.sql.exec("SELECT id FROM unit_access WHERE id='primary'").toArray()[0];
-      if (!configured || !unitConfigured) {
-        try { this.sql.exec("DELETE FROM admin_sessions WHERE token_hash=?", tokenHash); } catch {}
-        try { this.sql.exec("DELETE FROM unit_access WHERE id='primary'"); } catch {}
-        try { this.sql.exec("DELETE FROM admin_config WHERE id='primary'"); } catch {}
-        throw new ScaleError("Não foi possível criar o administrador. Tente novamente em instantes.", 500);
-      }
+      try { this.sql.exec("DELETE FROM admin_sessions WHERE token_hash=?", tokenHash); } catch {}
+      try { this.sql.exec("DELETE FROM unit_access WHERE id='primary'"); } catch {}
+      try { this.sql.exec("DELETE FROM admin_config WHERE id='primary'"); } catch {}
+      try { await this.ctx.storage.sync(); } catch {}
+      throw new ScaleError(`Não foi possível criar o administrador: ${e?.message || "erro interno"}.`, 500);
     }
     this.broadcastRefresh();
     return json({ session: { role: "admin", id: "admin", name } }, 201, { "set-cookie": setCookie(token, Math.floor(SESSION_TTL_MS/1000), ADMIN_SESSION_COOKIE) });
