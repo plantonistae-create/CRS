@@ -4,7 +4,7 @@
   async adminCreateDoctor(request) {
     const actor = await this.actor(request, { adminOnly: true }); const b = await this.readJson(request);
     const name = text(b.name, 120, "nome"); if (name.length < 2) throw new ScaleError("Informe o nome do médico.");
-    const crm = text(b.crm, 5, "CRM"); if (!/^\d{5}$/.test(crm)) throw new ScaleError("O CRM deve conter exatamente 5 dígitos.");
+    const crm = text(b.crm, 5, "CRM"); if (!/^\d{4,5}$/.test(crm)) throw new ScaleError("O CRM deve conter 4 ou 5 dígitos, somente números.");
     const salt = hex(crypto.getRandomValues(new Uint8Array(16))); const hash = await passwordHash(randomToken().slice(0,16), salt); const id = crypto.randomUUID(); const now = Date.now();
     try { this.sql.exec("INSERT INTO doctors(id,name,login,password_salt,password_hash,active,created_at,updated_at,crm) VALUES(?,?,?,?,?,1,?,?,?)", id, name, crm, salt, hash, now, now, crm); }
     catch { throw new ScaleError("Este CRM já está cadastrado.", 409); }
@@ -13,7 +13,7 @@
   }
   async adminResetPassword(request, id) {
     const actor = await this.actor(request, { adminOnly: true }); const b = await this.readJson(request); this.ensureDoctor(id);
-    const crm = text(b.crm, 5, "CRM"); if (!/^\d{5}$/.test(crm)) throw new ScaleError("O CRM deve conter exatamente 5 dígitos.");
+    const crm = text(b.crm, 5, "CRM"); if (!/^\d{4,5}$/.test(crm)) throw new ScaleError("O CRM deve conter 4 ou 5 dígitos, somente números.");
     try { this.sql.exec("UPDATE doctors SET crm=?,login=?,updated_at=? WHERE id=?", crm, crm, Date.now(), id); }
     catch { throw new ScaleError("Este CRM já está cadastrado para outro médico.", 409); }
     this.sql.exec("DELETE FROM sessions WHERE doctor_id=?", id);
