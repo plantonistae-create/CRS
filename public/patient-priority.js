@@ -36,9 +36,7 @@
   }
 
   function saveOrder(container) {
-    const ids = [...container.children]
-      .map(patientIdFromCard)
-      .filter(Boolean);
+    const ids = [...container.children].map(patientIdFromCard).filter(Boolean);
     try { localStorage.setItem(orderKey(container), JSON.stringify(ids)); } catch {}
   }
 
@@ -47,8 +45,15 @@
     if (!saved.length) return;
     const cards = [...container.children].filter(el => patientIdFromCard(el));
     if (!cards.length) return;
+
+    const current = cards.map(patientIdFromCard);
+    const currentSet = new Set(current);
+    const desired = saved.filter(id => currentSet.has(id));
+    current.forEach(id => { if (!desired.includes(id)) desired.push(id); });
+    if (current.length === desired.length && current.every((id, index) => id === desired[index])) return;
+
     const byId = new Map(cards.map(card => [patientIdFromCard(card), card]));
-    saved.forEach(id => {
+    desired.forEach(id => {
       const card = byId.get(id);
       if (card) container.appendChild(card);
     });
@@ -95,6 +100,7 @@
     const handle = document.createElement('button');
     handle.type = 'button';
     handle.className = 'patient-drag-handle';
+    handle.draggable = true;
     handle.setAttribute('aria-label', 'Arrastar para reordenar paciente');
     handle.title = 'Arraste para mudar a ordem';
     handle.innerHTML = '<span aria-hidden="true">⠿</span><span>Ordenar</span>';
@@ -109,26 +115,23 @@
 
     top.append(handle, alta);
     card.prepend(top);
-    card.draggable = true;
     card.dataset.patientPriorityId = id;
   }
 
   function bindDrag(container, card) {
     if (card.dataset.dragBound === '1') return;
+    const handle = card.querySelector('.patient-drag-handle');
+    if (!handle) return;
     card.dataset.dragBound = '1';
 
-    card.addEventListener('dragstart', event => {
-      if (!event.target.closest('.patient-drag-handle')) {
-        event.preventDefault();
-        return;
-      }
+    handle.addEventListener('dragstart', event => {
       dragged = card;
       card.classList.add('patient-dragging');
       event.dataTransfer.effectAllowed = 'move';
       try { event.dataTransfer.setData('text/plain', patientIdFromCard(card)); } catch {}
     });
 
-    card.addEventListener('dragend', () => {
+    handle.addEventListener('dragend', () => {
       card.classList.remove('patient-dragging');
       dragged = null;
       saveOrder(container);
@@ -140,7 +143,8 @@
       event.dataTransfer.dropEffect = 'move';
       const rect = card.getBoundingClientRect();
       const before = event.clientY < rect.top + rect.height / 2;
-      container.insertBefore(dragged, before ? card : card.nextSibling);
+      const anchor = before ? card : card.nextSibling;
+      if (anchor !== dragged) container.insertBefore(dragged, anchor);
     });
 
     card.addEventListener('drop', event => {
@@ -163,7 +167,7 @@
     const currentRoute = route();
     if (!['censo', 'reavaliacoes'].includes(currentRoute)) return;
     const head = $('.page-head');
-    if (!head || head.querySelector('.patient-order-hint')) return;
+    if (!head || $('.patient-order-hint')) return;
     const hint = document.createElement('div');
     hint.className = 'patient-order-hint';
     hint.innerHTML = '<span>⠿</span> Arraste os pacientes para organizar sua sequência de atendimento.';
