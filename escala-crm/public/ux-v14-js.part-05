@@ -21,34 +21,63 @@ Ferramentas administrativas da escala</summary><div class="ux-admin-tools-body">
     const f=new FormData(e.currentTarget);const doctor=doctorById(String(f.get('doctorId')||''));if(!confirm(`CONFIRMAR ALTERAÇÃO NA ESCALA?\n\n${doctor?.name||'Médico'}\n${fmtDate(String(f.get('date')||''))} · ${f.get('start')||''}–${f.get('end')||''}`)){e.preventDefault();return;}return submitShiftBase(e);
   };
 
-  const decideBase=decide;
+  function refreshAdminImpact(select){
+    const r=(state.data?.requests||[]).find(x=>x.id===select.dataset.requestTarget);
+    const box=select.closest('.ux-admin-request')?.querySelector('.ux-impact');
+    if(!r||!box)return;
+    const impact=requestImpact({...r,targetDoctorId:select.value||null});
+    box.className=`ux-impact ${impact.cls}`;
+    const detail=box.querySelector('span');if(detail)detail.textContent=impact.text;
+  }
+
   decide=async function(btn){
-    const id=btn.dataset.decide;const request=(state.data?.requests||[]).find(r=>r.id===id);const approve=btn.dataset.approve!=='0'||btn.dataset.debt!==undefined;
-    if(!approve){const reason=prompt('Informe o motivo da não aprovação:','');if(!reason||!reason.trim())return toast('Informe o motivo para não aprovar.',true);if(!confirm(`CONFIRMAR NÃO APROVAÇÃO?\n\n${TYPE[request?.type]||'Solicitação'} · ${request?.protocol||''}`))return;try{await post(`/api/admin/requests/${id}/decide`,{approve:false,note:reason.trim()});toast('Decisão registrada.');await load();}catch(e){toast(e.message,true)}return;}
-    if(!confirm(`CONFIRMAR APROVAÇÃO?\n\n${TYPE[request?.type]||'Solicitação'} · ${request?.protocol||''}\n\nA escala poderá ser atualizada imediatamente.`))return;
-    return decideBase(btn);
+    const id=btn.dataset.decide;
+    const request=(state.data?.requests||[]).find(r=>r.id===id);
+    if(!request)return toast('Solicitação não encontrada. Atualize a tela e tente novamente.',true);
+    const approve=btn.dataset.approve!=='0'||btn.dataset.debt!==undefined;
+    if(!approve){
+      const reason=prompt('Informe o motivo da não aprovação:','');
+      if(!reason||!reason.trim())return toast('Informe o motivo para não aprovar.',true);
+      if(!confirm(`CONFIRMAR NÃO APROVAÇÃO?\n\n${TYPE[request.type]||'Solicitação'} · ${request.protocol||''}`))return;
+      try{await post(`/api/admin/requests/${id}/decide`,{approve:false,note:reason.trim()});toast('Decisão registrada.');await load();}catch(e){toast(e.message,true)}
+      return;
+    }
+
+    const targetSelect=document.querySelector(`[data-request-target="${id}"]`);
+    const categorySelect=document.querySelector(`[data-request-category="${id}"]`);
+    const targetDoctorId=targetSelect?.value||request.targetDoctorId||'';
+    const category=categorySelect?.value||request.category||'eventual';
+    const canReplace=['troca','atestado','ausencia'].includes(request.type);
+
+    if(request.type==='troca'&&!targetDoctorId)return toast('Selecione o médico substituto antes de aprovar a troca.',true);
+    if(canReplace){
+      const impact=requestImpact({...request,targetDoctorId:targetDoctorId||null});
+      if(!targetDoctorId&&['atestado','ausencia'].includes(request.type)){
+        if(!confirm('ATENÇÃO: sem substituto definido, o plantão ficará descoberto após a aprovação.\n\nDeseja aprovar mesmo assim?'))return;
+      }else if(impact.cls==='bad'){
+        if(!confirm(`${impact.text}\n\nDeseja aprovar mesmo assim?`))return;
+      }
+    }
+
+    if(!confirm(`CONFIRMAR APROVAÇÃO?\n\n${TYPE[request.type]||'Solicitação'} · ${request.protocol||''}\n\nA escala poderá ser atualizada imediatamente.`))return;
+    const note=prompt('Observação da decisão (opcional):','')||'';
+    const body={approve:true,note};
+    if(targetDoctorId)body.targetDoctorId=targetDoctorId;
+    if(canReplace&&targetDoctorId)body.category=category;
+    if(btn.dataset.debt!==undefined){
+      body.generatesDebt=btn.dataset.debt==='1';
+      if(body.generatesDebt){
+        const raw=prompt('Quantas horas devem entrar no saldo a compensar?',String(request.hours||12));
+        if(raw===null)return;
+        const debtHours=Number(raw||request.hours||12);
+        if(!Number.isFinite(debtHours)||debtHours<=0)return toast('Informe uma quantidade válida de horas.',true);
+        body.debtHours=debtHours;
+      }
+    }
+    try{await post(`/api/admin/requests/${id}/decide`,body);toast('Decisão registrada.');await load();}catch(e){toast(e.message,true)}
   };
 
   render=function(){
     const app=$('#app');let body='';
     if(!state.session)body=`<div class="ux-public-entry">${loginBlock()}</div>`;
-    else if(state.route==='notifications')body=notificationsView();
-    else if(state.route==='public')body=publicView();
-    else if(state.session.role==='admin')body=state.route==='dashboard'?dashboard():state.route==='schedule'?scheduleAdmin():state.route==='templates'?templatesView():state.route==='doctors'?doctorsView():state.route==='requests'?requestsView():auditView();
-    else if(state.session.role==='doctor')body=state.route==='mine'?mineView():state.route==='requests'?requestsView():state.route==='area'?doctorAreaView():publicView();
-    else body=publicView();
-    app.innerHTML=`<div class="shell">${topbar()}<main class="content">${body}</main></div><div id="toast" class="toast" role="status" aria-live="polite"></div>`;bind();
-  };
-
-  bind=function(){
-    priorBind();
-    document.querySelectorAll('[data-ux-range]').forEach(b=>b.onclick=()=>{state.uxScheduleRange=b.dataset.uxRange;render()});
-    document.querySelectorAll('[data-ux-mode]').forEach(b=>b.onclick=()=>{state.uxScheduleMode=b.dataset.uxMode;render()});
-    document.querySelector('[data-ux-doctor-filter]')?.addEventListener('change',e=>{state.uxDoctorFilter=e.target.value;render()});
-    document.querySelectorAll('[data-ux-request-type]').forEach(b=>b.onclick=()=>{state.uxRequestType=b.dataset.uxRequestType;state.requestDraft=null;state.route='requests';render()});
-    document.querySelectorAll('[data-ux-pick-shift]').forEach(b=>b.onclick=()=>{state.requestDraft={shiftId:b.dataset.uxPickShift,type:b.dataset.uxPickType};render()});
-    document.querySelectorAll('[data-ux-request-back]').forEach(b=>b.onclick=()=>{if(state.requestDraft){state.requestDraft=null;}else state.uxRequestType=null;render()});
-    document.querySelector('[data-ux-show-all-requests]')?.addEventListener('click',()=>{resetRequestFlow();state.route='requests';render()});
-    document.querySelectorAll('input[name="file"],input[name="cameraFile"]').forEach(input=>input.addEventListener('change',e=>{const name=e.target.files?.[0]?.name||'Nenhum arquivo selecionado';const out=document.querySelector('[data-ux-file-name]');if(out)out.textContent=name;}));
-    document.querySelector('[data-ux-dismiss-success]')?.addEventListener('click',()=>{state.uxLastSubmission=null;render()});
-    if(state.session?.role==='doctor')document.querySelectorAll('[dat
+    else
