@@ -84,6 +84,20 @@
     patientCards().forEach(row=>{
       if(row.dataset.censoDecorated!=='1'){
         row.classList.add('censo-patient-card');
+        const identity=[...row.children].find(el=>el.querySelector?.('.patient-name'));
+        if(identity){
+          identity.classList.add('censo-patient-identity');
+          if(!identity.querySelector('.censo-sector-badge')){
+            const sectorId=row.closest('.sector')?.dataset.censoSector||'';
+            const sectorLabel=SECTORS.find(s=>s.id===sectorId)?.label||'';
+            if(sectorLabel){
+              const badge=document.createElement('span');
+              badge.className='censo-sector-badge';
+              badge.textContent=sectorLabel;
+              identity.appendChild(badge);
+            }
+          }
+        }
         addFieldLabel(row.querySelector('.patient-case'),'Resumo');
         addFieldLabel(row.querySelector('.patient-pending'),'Pendências');
         const open=row.querySelector('[data-open-patient]');
@@ -104,10 +118,13 @@
   function updateTools(){
     const total=patientCards().length;
     const totalEl=$('[data-censo-total]');
-    if(totalEl)totalEl.textContent=String(total);
+    if(totalEl&&totalEl.textContent!==String(total))totalEl.textContent=String(total);
     SECTORS.forEach(s=>{
       const el=$('[data-censo-count="'+CSS.escape(s.id)+'"]');
-      if(el)el.textContent=String(countBySector(s.id));
+      if(el){
+        const next=String(countBySector(s.id));
+        if(el.textContent!==next)el.textContent=next;
+      }
     });
   }
   function applyFilters(scrollToSector){
@@ -139,9 +156,10 @@
       const pieces=[];
       if(sectorName)pieces.push('setor <strong>'+esc(sectorName)+'</strong>');
       if(q)pieces.push('busca <strong>'+esc(query.trim())+'</strong>');
-      status.innerHTML=pieces.length
+      const nextStatus=pieces.length
         ? visible+' paciente'+(visible===1?'':'s')+' encontrado'+(visible===1?'':'s')+' em '+pieces.join(' · ')
         : 'Mostrando todos os pacientes do Censo.';
+      if(status.innerHTML!==nextStatus)status.innerHTML=nextStatus;
     }
 
     let empty=$('.censo-no-results');
@@ -220,11 +238,32 @@
     }finally{decorating=false;}
   }
 
-  window.addEventListener('hashchange',()=>setTimeout(decorate,0));
-  new MutationObserver(()=>{
-    if(currentRoute()===ROUTE&&!decorating)requestAnimationFrame(decorate);
-  }).observe(document.documentElement,{childList:true,subtree:true});
+  let decorateFrame=0;
+  function scheduleDecorate(){
+    if(currentRoute()!==ROUTE)return;
+    cancelAnimationFrame(decorateFrame);
+    decorateFrame=requestAnimationFrame(decorate);
+  }
+  function enhanceCurrentModal(){
+    if(currentRoute()!==ROUTE)return;
+    requestAnimationFrame(()=>{
+      enhanceManualForm();
+      enhancePatientModal();
+    });
+  }
 
-  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>setTimeout(decorate,0));
-  else setTimeout(decorate,0);
+  window.addEventListener('hashchange',()=>setTimeout(scheduleDecorate,0));
+
+  const contentRoot=$('#content');
+  if(contentRoot){
+    new MutationObserver(scheduleDecorate).observe(contentRoot,{childList:true});
+  }
+
+  const modalRoot=$('#modal-card');
+  if(modalRoot){
+    new MutationObserver(enhanceCurrentModal).observe(modalRoot,{childList:true});
+  }
+
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>setTimeout(scheduleDecorate,0));
+  else setTimeout(scheduleDecorate,0);
 })();
