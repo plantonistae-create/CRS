@@ -65,7 +65,10 @@ jobs:
           grep -q 'Plantões descobertos' /tmp/escala-app/public/ux-v14.js
           grep -q 'Procurar médico' /tmp/escala-app/public/ux-v14.js
           grep -q 'Tirar foto' /tmp/escala-app/public/ux-v14.js
+          grep -q 'body.targetDoctorId=targetDoctorId' /tmp/escala-app/public/ux-v14.js
+          grep -q 'plantão ficará descoberto' /tmp/escala-app/public/ux-v14.js
           grep -q 'prefers-reduced-motion' /tmp/escala-app/public/ux-v14.css
+          grep -q 'ux-v14.js?v=14' /tmp/escala-app/public/escala-sw.js
           echo 'Escala CRM v14 validada'
       - name: Deploy Escala Worker
         env:

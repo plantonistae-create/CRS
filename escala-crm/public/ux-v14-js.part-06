@@ -1,4 +1,24 @@
-a-route="requests"]').forEach(b=>b.onclick=()=>{resetRequestFlow();state.route='requests';render()});
+ if(state.route==='notifications')body=notificationsView();
+    else if(state.route==='public')body=publicView();
+    else if(state.session.role==='admin')body=state.route==='dashboard'?dashboard():state.route==='schedule'?scheduleAdmin():state.route==='templates'?templatesView():state.route==='doctors'?doctorsView():state.route==='requests'?requestsView():auditView();
+    else if(state.session.role==='doctor')body=state.route==='mine'?mineView():state.route==='requests'?requestsView():state.route==='area'?doctorAreaView():publicView();
+    else body=publicView();
+    app.innerHTML=`<div class="shell">${topbar()}<main class="content">${body}</main></div><div id="toast" class="toast" role="status" aria-live="polite"></div>`;bind();
+  };
+
+  bind=function(){
+    priorBind();
+    document.querySelectorAll('[data-ux-range]').forEach(b=>b.onclick=()=>{state.uxScheduleRange=b.dataset.uxRange;render()});
+    document.querySelectorAll('[data-ux-mode]').forEach(b=>b.onclick=()=>{state.uxScheduleMode=b.dataset.uxMode;render()});
+    document.querySelector('[data-ux-doctor-filter]')?.addEventListener('change',e=>{state.uxDoctorFilter=e.target.value;render()});
+    document.querySelectorAll('[data-ux-request-type]').forEach(b=>b.onclick=()=>{state.uxRequestType=b.dataset.uxRequestType;state.requestDraft=null;state.route='requests';render()});
+    document.querySelectorAll('[data-ux-pick-shift]').forEach(b=>b.onclick=()=>{state.requestDraft={shiftId:b.dataset.uxPickShift,type:b.dataset.uxPickType};render()});
+    document.querySelectorAll('[data-ux-request-back]').forEach(b=>b.onclick=()=>{if(state.requestDraft){state.requestDraft=null;}else state.uxRequestType=null;render()});
+    document.querySelector('[data-ux-show-all-requests]')?.addEventListener('click',()=>{resetRequestFlow();state.route='requests';render()});
+    document.querySelectorAll('input[name="file"],input[name="cameraFile"]').forEach(input=>input.addEventListener('change',e=>{const name=e.target.files?.[0]?.name||'Nenhum arquivo selecionado';const out=document.querySelector('[data-ux-file-name]');if(out)out.textContent=name;}));
+    document.querySelector('[data-ux-dismiss-success]')?.addEventListener('click',()=>{state.uxLastSubmission=null;render()});
+    document.querySelectorAll('[data-request-target]').forEach(select=>select.addEventListener('change',()=>refreshAdminImpact(select)));
+    if(state.session?.role==='doctor')document.querySelectorAll('[data-route="requests"]').forEach(b=>b.onclick=()=>{resetRequestFlow();state.route='requests';render()});
   };
 
   try{render();}catch(e){console.error('ux-v14-render',e)}
