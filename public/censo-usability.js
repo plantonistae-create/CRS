@@ -84,6 +84,20 @@
     patientCards().forEach(row=>{
       if(row.dataset.censoDecorated!=='1'){
         row.classList.add('censo-patient-card');
+        const identity=[...row.children].find(el=>el.querySelector?.('.patient-name'));
+        if(identity){
+          identity.classList.add('censo-patient-identity');
+          if(!identity.querySelector('.censo-sector-badge')){
+            const sectorId=row.closest('.sector')?.dataset.censoSector||'';
+            const sectorLabel=SECTORS.find(s=>s.id===sectorId)?.label||'';
+            if(sectorLabel){
+              const badge=document.createElement('span');
+              badge.className='censo-sector-badge';
+              badge.textContent=sectorLabel;
+              identity.appendChild(badge);
+            }
+          }
+        }
         addFieldLabel(row.querySelector('.patient-case'),'Resumo');
         addFieldLabel(row.querySelector('.patient-pending'),'Pendências');
         const open=row.querySelector('[data-open-patient]');
