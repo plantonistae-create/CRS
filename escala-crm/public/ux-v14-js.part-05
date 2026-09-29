@@ -1,0 +1,54 @@
+Ferramentas administrativas da escala</summary><div class="ux-admin-tools-body">${priorScheduleAdmin()}</div></details>`;
+  };
+
+
+  submitRequest=async function(e){
+    e.preventDefault();const fd=new FormData(e.currentTarget);const type=String(fd.get('type')||'');const shift=(state.data?.shifts||[]).find(s=>s.id===fd.get('shiftId'));const camera=fd.get('cameraFile'),chosen=fd.get('file'),file=camera&&camera.size?camera:chosen;const start=String(fd.get('periodStart')||''),end=String(fd.get('periodEnd')||'');let notes=String(fd.get('notes')||'').trim();
+    if(type==='atestado'){
+      if(!file||!file.size)return toast('Adicione uma foto ou arquivo do atestado.',true);
+      if(start&&end&&end<start)return toast('A data final não pode ser anterior à data inicial.',true);
+      if(start&&end)notes=`Período do atestado: ${fmtDate(start)} a ${fmtDate(end)}.${notes?` ${notes}`:''}`;
+    }
+    const summary=`${TYPE[type]||'Solicitação'}\n${shift?`${fmtDate(shift.date)} · ${shift.start}–${shift.end}`:''}`;
+    if(!confirm(`CONFIRMAR SOLICITAÇÃO?\n\n${summary}\n\nA escala oficial só será alterada após análise.`))return;
+    const body=Object.fromEntries(fd);delete body.file;delete body.cameraFile;delete body.periodStart;delete body.periodEnd;body.notes=notes;body.hours=Number(body.hours);if(!body.shiftId)delete body.shiftId;if(!body.targetDoctorId)delete body.targetDoctorId;
+    const submit=e.currentTarget.querySelector('[type="submit"]');if(submit){submit.disabled=true;submit.textContent='Enviando…';}
+    try{const d=await post('/api/requests',body);if(file&&file.size){const up=new FormData();up.append('file',file);await api(`/api/requests/${d.request.id}/attachment`,{method:'POST',body:up});}state.uxLastSubmission={type:d.request.type||type,protocol:d.request.protocol,status:d.request.status||'pending',submittedAt:d.request.submittedAt||new Date().toISOString()};resetRequestFlow();toast(`Solicitação enviada: ${d.request.protocol}`);await load();}catch(err){if(submit){submit.disabled=false;submit.textContent='Confirmar solicitação';}toast(err.message,true)}
+  };
+
+  const submitShiftBase=submitShift;
+  submitShift=function(e){
+    const f=new FormData(e.currentTarget);const doctor=doctorById(String(f.get('doctorId')||''));if(!confirm(`CONFIRMAR ALTERAÇÃO NA ESCALA?\n\n${doctor?.name||'Médico'}\n${fmtDate(String(f.get('date')||''))} · ${f.get('start')||''}–${f.get('end')||''}`)){e.preventDefault();return;}return submitShiftBase(e);
+  };
+
+  const decideBase=decide;
+  decide=async function(btn){
+    const id=btn.dataset.decide;const request=(state.data?.requests||[]).find(r=>r.id===id);const approve=btn.dataset.approve!=='0'||btn.dataset.debt!==undefined;
+    if(!approve){const reason=prompt('Informe o motivo da não aprovação:','');if(!reason||!reason.trim())return toast('Informe o motivo para não aprovar.',true);if(!confirm(`CONFIRMAR NÃO APROVAÇÃO?\n\n${TYPE[request?.type]||'Solicitação'} · ${request?.protocol||''}`))return;try{await post(`/api/admin/requests/${id}/decide`,{approve:false,note:reason.trim()});toast('Decisão registrada.');await load();}catch(e){toast(e.message,true)}return;}
+    if(!confirm(`CONFIRMAR APROVAÇÃO?\n\n${TYPE[request?.type]||'Solicitação'} · ${request?.protocol||''}\n\nA escala poderá ser atualizada imediatamente.`))return;
+    return decideBase(btn);
+  };
+
+  render=function(){
+    const app=$('#app');let body='';
+    if(!state.session)body=`<div class="ux-public-entry">${loginBlock()}</div>`;
+    else if(state.route==='notifications')body=notificationsView();
+    else if(state.route==='public')body=publicView();
+    else if(state.session.role==='admin')body=state.route==='dashboard'?dashboard():state.route==='schedule'?scheduleAdmin():state.route==='templates'?templatesView():state.route==='doctors'?doctorsView():state.route==='requests'?requestsView():auditView();
+    else if(state.session.role==='doctor')body=state.route==='mine'?mineView():state.route==='requests'?requestsView():state.route==='area'?doctorAreaView():publicView();
+    else body=publicView();
+    app.innerHTML=`<div class="shell">${topbar()}<main class="content">${body}</main></div><div id="toast" class="toast" role="status" aria-live="polite"></div>`;bind();
+  };
+
+  bind=function(){
+    priorBind();
+    document.querySelectorAll('[data-ux-range]').forEach(b=>b.onclick=()=>{state.uxScheduleRange=b.dataset.uxRange;render()});
+    document.querySelectorAll('[data-ux-mode]').forEach(b=>b.onclick=()=>{state.uxScheduleMode=b.dataset.uxMode;render()});
+    document.querySelector('[data-ux-doctor-filter]')?.addEventListener('change',e=>{state.uxDoctorFilter=e.target.value;render()});
+    document.querySelectorAll('[data-ux-request-type]').forEach(b=>b.onclick=()=>{state.uxRequestType=b.dataset.uxRequestType;state.requestDraft=null;state.route='requests';render()});
+    document.querySelectorAll('[data-ux-pick-shift]').forEach(b=>b.onclick=()=>{state.requestDraft={shiftId:b.dataset.uxPickShift,type:b.dataset.uxPickType};render()});
+    document.querySelectorAll('[data-ux-request-back]').forEach(b=>b.onclick=()=>{if(state.requestDraft){state.requestDraft=null;}else state.uxRequestType=null;render()});
+    document.querySelector('[data-ux-show-all-requests]')?.addEventListener('click',()=>{resetRequestFlow();state.route='requests';render()});
+    document.querySelectorAll('input[name="file"],input[name="cameraFile"]').forEach(input=>input.addEventListener('change',e=>{const name=e.target.files?.[0]?.name||'Nenhum arquivo selecionado';const out=document.querySelector('[data-ux-file-name]');if(out)out.textContent=name;}));
+    document.querySelector('[data-ux-dismiss-success]')?.addEventListener('click',()=>{state.uxLastSubmission=null;render()});
+    if(state.session?.role==='doctor')document.querySelectorAll('[dat

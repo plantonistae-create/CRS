@@ -31,6 +31,8 @@ jobs:
           cat escala-crm/public/escala-js.part-* > /tmp/escala-app/public/escala.js
           cp escala-crm/src/scale-entry.js escala-crm/src/scale-file-store.js /tmp/escala-app/src/
           cp escala-crm/public/escala.html escala-crm/public/index.html escala-crm/public/escala.css escala-crm/public/ux-v11.css escala-crm/public/ux-v11.js escala-crm/public/ux-v12.js escala-crm/public/escala-sw.js escala-crm/public/escala-manifest.json escala-crm/public/crm-format-patch.js /tmp/escala-app/public/
+          cat escala-crm/public/ux-v14-js.part-* > /tmp/escala-app/public/ux-v14.js
+          cat escala-crm/public/ux-v14-css.part-* > /tmp/escala-app/public/ux-v14.css
           cp escala-crm/wrangler.jsonc /tmp/escala-app/
           node --check /tmp/escala-app/src/scale-room.js
           node --check /tmp/escala-app/src/scale-entry.js
@@ -39,6 +41,7 @@ jobs:
           node --check /tmp/escala-app/public/crm-format-patch.js
           node --check /tmp/escala-app/public/ux-v11.js
           node --check /tmp/escala-app/public/ux-v12.js
+          node --check /tmp/escala-app/public/ux-v14.js
           grep -q 'EXTRA_DAILY_LIMIT = 96' /tmp/escala-app/src/scale-room.js
           grep -q 'VIEWER_SESSION_COOKIE' /tmp/escala-app/src/scale-room.js
           grep -q 'CRM com 4 ou 5 dígitos' /tmp/escala-app/src/scale-room.js
@@ -56,7 +59,14 @@ jobs:
           grep -q '07:00' /tmp/escala-app/public/ux-v12.js
           grep -q '13:00' /tmp/escala-app/public/ux-v12.js
           grep -q '19:00' /tmp/escala-app/public/ux-v12.js
-          echo 'Escala CRM v12 validada'
+          grep -q 'O que você precisa?' /tmp/escala-app/public/ux-v14.js
+          grep -q 'TROCA EM ANÁLISE' /tmp/escala-app/public/ux-v14.js
+          grep -q 'AGUARDANDO ANÁLISE' /tmp/escala-app/public/ux-v14.js
+          grep -q 'Plantões descobertos' /tmp/escala-app/public/ux-v14.js
+          grep -q 'Procurar médico' /tmp/escala-app/public/ux-v14.js
+          grep -q 'Tirar foto' /tmp/escala-app/public/ux-v14.js
+          grep -q 'prefers-reduced-motion' /tmp/escala-app/public/ux-v14.css
+          echo 'Escala CRM v14 validada'
       - name: Deploy Escala Worker
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -82,14 +92,18 @@ jobs:
           }
           fetch_until "$BASE/api/health" /tmp/health.json '"ok":true'
           node -e "const fs=require('fs');const x=JSON.parse(fs.readFileSync('/tmp/health.json','utf8'));if(!x.ok||x.site!=='escala-medica-cs-coophavila')process.exit(1)"
-          fetch_until "$BASE/escala.js?v=12&ci=${GITHUB_SHA}" /tmp/escala.js 'Código compartilhado da unidade'
-          fetch_until "$BASE/crm-format-patch.js?v=12&ci=${GITHUB_SHA}" /tmp/crm-format-patch.js '4 ou 5 dígitos'
-          fetch_until "$BASE/ux-v11.js?v=12&ci=${GITHUB_SHA}" /tmp/ux-v11.js 'Substituir plantonista'
-          fetch_until "$BASE/ux-v12.js?v=12&ci=${GITHUB_SHA}" /tmp/ux-v12.js 'Matutino'
+          fetch_until "$BASE/escala.js?v=14&ci=${GITHUB_SHA}" /tmp/escala.js 'Código compartilhado da unidade'
+          fetch_until "$BASE/crm-format-patch.js?v=14&ci=${GITHUB_SHA}" /tmp/crm-format-patch.js '4 ou 5 dígitos'
+          fetch_until "$BASE/ux-v11.js?v=14&ci=${GITHUB_SHA}" /tmp/ux-v11.js 'Substituir plantonista'
+          fetch_until "$BASE/ux-v12.js?v=14&ci=${GITHUB_SHA}" /tmp/ux-v12.js 'Matutino'
           grep -q 'Vespertino' /tmp/ux-v12.js
           grep -q 'Diurno' /tmp/ux-v12.js
           grep -q 'Noturno' /tmp/ux-v12.js
           grep -q 'Cinderela' /tmp/ux-v12.js
+          fetch_until "$BASE/ux-v14.js?v=14&ci=${GITHUB_SHA}" /tmp/ux-v14.js 'O que você precisa?'
+          grep -q 'TROCA EM ANÁLISE' /tmp/ux-v14.js
+          grep -q 'Plantões descobertos' /tmp/ux-v14.js
+          fetch_until "$BASE/ux-v14.css?v=14&ci=${GITHUB_SHA}" /tmp/ux-v14.css 'prefers-reduced-motion'
           fetch_until "$BASE/api/auth/admin/status" /tmp/status.json 'configured'
           node -e "const fs=require('fs');const x=JSON.parse(fs.readFileSync('/tmp/status.json','utf8'));if(typeof x.configured!=='boolean'||typeof x.unitAccessConfigured!=='boolean')process.exit(1)"
-          echo 'Escala CRM v12 production smoke test passed'
+          echo 'Escala CRM v14 production smoke test passed'

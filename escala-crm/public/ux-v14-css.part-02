@@ -1,0 +1,9 @@
+lumn}.ux-admin-request-head .ux-status{align-self:flex-start}.ux-detail-line{flex-direction:column;gap:3px}.ux-form-actions .btn{width:100%}.mobile-tabs{padding-bottom:calc(8px + env(safe-area-inset-bottom))}.content{padding-bottom:calc(104px + env(safe-area-inset-bottom))}}
+@media(max-width:390px){.shell{padding:6px}.ux-toolbar-group{grid-template-columns:1fr 1fr}.ux-shift-main{align-items:flex-start}.ux-shift-time{font-size:16px}.ux-next-time{font-size:34px}.top-actions .badge{display:none}}
+.ux-own-calendar{box-shadow:inset 3px 0 var(--cyan);background:#36d7ff0b!important}.ux-success-card{display:flex;justify-content:space-between;align-items:center;gap:16px;margin:0 0 14px;padding:16px;border:1px solid #45d48366;border-radius:15px;background:#45d4830a}.ux-success-card h2{margin:4px 0}.ux-success-card p{margin:0 0 8px;color:var(--muted)}.ux-timeline{margin-top:9px;padding-left:4px}.ux-timeline>div{display:grid;grid-template-columns:14px 1fr;gap:7px;position:relative}.ux-timeline>div>span{width:8px;height:8px;border-radius:50%;background:var(--cyan);margin-top:5px}.ux-timeline>div:not(:last-child)::after{content:"";position:absolute;left:3px;top:13px;bottom:-6px;width:1px;background:var(--line)}.ux-timeline p{display:flex;flex-direction:column;margin:0 0 8px}.ux-timeline strong{font-size:12px}.ux-timeline small{font-size:11px;color:var(--muted)}.login-tabs{grid-template-columns:repeat(3,1fr)}
+html[data-theme="light"] .ux-success-card{background:#f0fdf4}.ux-upload-button:has(input:focus-visible){outline:2px solid var(--cyan);outline-offset:2px}
+@media(max-width:700px){.ux-success-card{align-items:flex-start;flex-direction:column}.ux-success-card .btn{width:100%}.login-tabs{grid-template-columns:1fr}}
+
+/* V14 admin tools reuse the validated V12 forms without duplicating its hero/calendar. */
+.ux-admin-tools-body > .hero,.ux-admin-tools-body > .section:not(.card){display:none}
+.ux-admin-tools-body > .card{margin-top:12px}
