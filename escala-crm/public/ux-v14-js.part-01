@@ -1,0 +1,37 @@
+="ux-toolbar"><div class="ux-toolbar-group" aria-label="Período">${rangeButton('today','Hoje')}${rangeButton('tomorrow','Amanhã')}${rangeButton('week','Semana')}${rangeButton('month','Mês')}</div><div class="ux-toolbar-group" aria-label="Visualização">${modeButton('list','Lista')}${modeButton('calendar','Calendário')}</div><label class="ux-doctor-search"><span>Procurar médico</span><select data-ux-doctor-filter><option value="">Todos os médicos</option>${doctors().map(d=>`<option value="${d.id}" ${state.uxDoctorFilter===d.id?'selected':''}>${esc(d.name)}</option>`).join('')}</select></label>${admin?'<button class="btn" type="button" data-action="generate">Gerar mês pelo padrão semanal</button>':''}</section>`;
+  }
+  function renderCalendarFiltered(admin=false){
+    const original=state.data.shifts;state.data.shifts=filteredShifts();const html=calendar(admin);state.data.shifts=original;return html;
+  }
+
+  shiftCard=function(s,admin=false){
+    const doc=doctorById(s.doctorId)||{name:'Médico'};const own=state.session?.role==='doctor'&&s.doctorId===state.session.id;const st=shiftState(s);
+    return `<div class="shift ${s.category==='pagamento'?'payment':s.category==='eventual'?'eventual':''} ${own?'ux-own-calendar':''}"><div class="name">${esc(doc.name)}</div><div class="meta">${esc(FN[s.function]||s.function)} · ${esc(s.start)}–${esc(s.end)} · ${s.hours}h</div><span class="ux-status ${st.cls}">${st.label}</span>${admin?`<div class="actions" style="margin-top:7px"><button class="btn small" data-shift-replace="${s.id}">Substituir</button><button class="btn small danger" data-shift-remove="${s.id}">Remover</button></div>`:''}</div>`;
+  };
+
+  topbar=function(){
+    if(!state.session)return `<header class="topbar"><div class="brand"><span class="brand-dot"></span><div><strong>CRS Coophavila</strong><small>Escala médica online</small></div></div></header>`;
+    let nav=[];
+    if(state.session.role==='admin')nav=[['dashboard','Pendências'],['schedule','Escala'],['templates','Padrão'],['doctors','Médicos'],['requests','Solicitações'],['audit','Auditoria']];
+    else if(state.session.role==='doctor')nav=[['mine','Início'],['public','Escala'],['requests','Solicitar'],['area','Minha área']];
+    else nav=[['public','Escala']];
+    const action=state.session.role==='doctor'?`<button class="btn small ghost" data-action="unidentify">Trocar CRM</button><button class="btn small ghost" data-action="logout">Sair</button>`:`<button class="btn small ghost" data-action="logout">Sair</button>`;
+    return `<header class="topbar"><div class="brand"><span class="brand-dot"></span><div><strong>CRS Coophavila</strong><small>Escala médica online</small></div></div><nav class="nav">${nav.map(([r,l])=>`<button class="${state.route===r?'active':''}" data-route="${r}">${l}</button>`).join('')}</nav><div class="top-actions"><span class="badge">${esc(state.session.role==='viewer'?'Acesso da unidade':state.session.name||state.session.role)}</span>${action}</div></header><div class="mobile-tabs">${nav.map(([r,l])=>`<button class="${state.route===r?'active':''}" data-route="${r}">${l}</button>`).join('')}</div>`;
+  };
+
+  loginBlock=function(){
+    const base=priorLoginBlock();
+    return `<div class="ux-login-intro"><div class="eyebrow">Escala Médica CRS Coophavila</div><h1>Entre e encontre o que precisa em poucos toques.</h1><p>Consulte a escala, veja seu próximo plantão ou resolva solicitações sem navegar por telas administrativas.</p></div>${base}`;
+  };
+
+  publicView=function(){
+    const identify=state.session?.role==='viewer'?`<section class="card ux-callout"><div><h2>Precisa fazer uma solicitação?</h2><p class="muted">Entre na Área do médico com seu CRM para solicitar troca, enviar atestado ou informar ausência.</p></div><form id="identify-form" class="ux-inline-identify"><label><span>CRM</span><input name="crm" inputmode="numeric" pattern="[0-9]{4,5}" maxlength="5" placeholder="0000 ou 00000" required></label><button class="btn primary" type="submit">Entrar na Área do médico</button></form></section>`:'';
+    return `<div class="hero ux-hero-compact"><div><div class="eyebrow">Escala médica</div><h1>${state.session?.role==='doctor'?'Minha escala e equipe':'Escala da unidade'}</h1><p>${state.session?.role==='doctor'?'Seus plantões ficam destacados. Todo médico exibido está escalado; só mostramos avisos quando existe alguma exceção.':'Consulte quem está escalado por dia e período.'}</p></div>${monthbar()}</div>${identify}${scheduleToolbar(false)}${state.uxScheduleMode==='list'?scheduleList(false):renderCalendarFiltered(false)}`;
+  };
+
+  function requestStatusPill(r){return `<span class="ux-status ${r.status==='approved'?'ok':r.status==='rejected'?'bad':'warn'}">${statusLabel(r.status)}</span>`;}
+  function recentRequestCard(r){return `<div class="ux-request-summary"><div><strong>${esc(TYPE[r.type]||r.type)}</strong><span>${fmtDate(r.eventDate)} · ${r.hours}h</span></div>${requestStatusPill(r)}</div>`;}
+  function requestHub(){
+    return `<section class="ux-request-hub"><div class="ux-section-title"><div><div class="eyebrow">Fazer uma solicitação</div><h2>O que você precisa?</h2></div></div><div class="ux-task-grid"><button type="button" data-ux-request-type="troca"><strong>Trocar um plantão</strong><span>Escolha o plantão e o médico envolvido.</span></button><button type="button" data-ux-request-type="atestado"><strong>Enviar atestado</strong><span>Anexe foto ou arquivo e informe o período.</span></button><button type="button" data-ux-request-type="ausencia"><strong>Informar ausência</strong><span>Avise qual plantão será afetado.</span></button><button type="button" data-ux-request-type="pagamento"><strong>Pagamento de horas</strong><span>Use um plantão futuro elegível.</span></button></div></section>`;
+  }
+  function ne
