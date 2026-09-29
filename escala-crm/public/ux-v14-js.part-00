@@ -1,0 +1,64 @@
+(function(){
+  const priorBind=bind;
+  const priorLoginBlock=loginBlock;
+  const priorScheduleAdmin=scheduleAdmin;
+
+  const PENDING_STATUSES=new Set(['pending','pending_peer','pending_admin']);
+  const STATUS_LABELS={
+    pending:'AGUARDANDO ANÁLISE',
+    pending_admin:'AGUARDANDO ANÁLISE',
+    pending_peer:'AGUARDANDO OUTRO MÉDICO',
+    approved:'APROVADO',
+    rejected:'NÃO APROVADO',
+    needs_info:'PRECISA DE INFORMAÇÃO',
+    completed:'CONCLUÍDO'
+  };
+
+  function statusLabel(status){return STATUS_LABELS[String(status||'').toLowerCase()]||String(status||'').replaceAll('_',' ').toUpperCase()||'—';}
+  function requestRows(){return state.session?.role==='doctor'?(state.data?.myRequests||[]):(state.data?.requests||[]);}
+  function requestsForShift(id){return requestRows().filter(r=>r.shiftId===id||r.shift_id===id);}
+  function pendingForShift(id){return requestsForShift(id).find(r=>PENDING_STATUSES.has(r.status));}
+  function doctors(){return (state.data?.doctorsList||Object.values(state.data?.doctors||{})).filter(d=>d.active!==false).sort((a,b)=>String(a.name).localeCompare(String(b.name),'pt-BR'));}
+  function doctorById(id){return state.data?.doctors?.[id]||state.data?.doctorsList?.find(d=>d.id===id)||null;}
+  function doctorNowDate(){return doctorNow().date;}
+  function currentDoctorShifts(){return (state.data?.shifts||[]).filter(s=>s.doctorId===state.session?.id).sort((a,b)=>(a.date+a.start).localeCompare(b.date+b.start));}
+  function shiftTimes(s){const n=doctorNow(),now=new Date(`${n.date}T${n.time}:00-04:00`),start=new Date(`${s.date}T${s.start}:00-04:00`),end=new Date(`${s.date}T${s.end}:00-04:00`);if(end<=start)end.setDate(end.getDate()+1);return{now,start,end};}
+  function isPastShift(s){const t=shiftTimes(s);return t.end<=t.now;}
+  function isUpcomingShift(s){const t=shiftTimes(s);return t.start>t.now;}
+  function futureOwnShifts(){return currentDoctorShifts().filter(isUpcomingShift);}
+  function routeTo(route){state.route=route;render();}
+  function resetRequestFlow(){state.requestDraft=null;state.uxRequestType=null;state.uxRequestsMode='hub';}
+  function fmtShortDate(v){if(!v)return '—';const [y,m,d]=v.slice(0,10).split('-');return `${d}/${m}`;}
+  function weekdayLong(date){return new Intl.DateTimeFormat('pt-BR',{weekday:'long',timeZone:'America/Campo_Grande'}).format(new Date(`${date}T12:00:00-04:00`));}
+  function isToday(date){return date===doctorNowDate();}
+  function tomorrowDate(){const d=new Date(`${doctorNowDate()}T12:00:00-04:00`);d.setDate(d.getDate()+1);const p=Object.fromEntries(new Intl.DateTimeFormat('en-CA',{timeZone:'America/Campo_Grande',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(d).filter(x=>x.type!=='literal').map(x=>[x.type,x.value]));return `${p.year}-${p.month}-${p.day}`;}
+  function withinDays(date,days){const now=new Date(`${doctorNowDate()}T00:00:00-04:00`);const target=new Date(`${date}T00:00:00-04:00`);const delta=Math.floor((target-now)/86400000);return delta>=0&&delta<days;}
+  function currentRangeFilter(s){const r=state.uxScheduleRange||'month';if(r==='today')return isToday(s.date);if(r==='tomorrow')return s.date===tomorrowDate();if(r==='week')return withinDays(s.date,7);return true;}
+  function filteredShifts(){
+    let list=(state.data?.shifts||[]).filter(currentRangeFilter);
+    if(state.uxDoctorFilter)list=list.filter(s=>s.doctorId===state.uxDoctorFilter);
+    return list.sort((a,b)=>(a.date+a.start).localeCompare(b.date+b.start));
+  }
+  function rangeButton(value,label){return `<button class="ux-filter ${state.uxScheduleRange===value?'active':''}" type="button" data-ux-range="${value}">${label}</button>`;}
+  function modeButton(value,label){return `<button class="ux-filter ${state.uxScheduleMode===value?'active':''}" type="button" data-ux-mode="${value}">${label}</button>`;}
+  function shiftState(s){
+    const pending=pendingForShift(s.id);
+    if(!pending)return {label:'ESCALADO',cls:'ok'};
+    if(pending.type==='troca')return {label:'TROCA EM ANÁLISE',cls:'warn'};
+    if(pending.type==='atestado')return {label:'ATESTADO EM ANÁLISE',cls:'warn'};
+    if(pending.type==='ausencia')return {label:'AUSÊNCIA INFORMADA',cls:'warn'};
+    return {label:'ALTERAÇÃO EM ANÁLISE',cls:'warn'};
+  }
+  function shiftLine(s,admin=false){
+    const doc=doctorById(s.doctorId)||{name:'Médico'};const own=state.session?.role==='doctor'&&s.doctorId===state.session.id;const st=shiftState(s);
+    return `<div class="ux-shift-row ${own?'is-own':''}"><div class="ux-shift-main"><div class="ux-shift-time">${esc(s.start)}–${esc(s.end)}</div><div><strong>${esc(doc.name)}</strong><div class="ux-muted">${esc(FN[s.function]||s.function)} · ${s.hours}h</div></div></div><div class="ux-shift-side"><span class="ux-status ${st.cls}">${st.label}</span>${admin?`<div class="actions"><button class="btn small" data-shift-replace="${s.id}">Substituir</button><button class="btn small danger" data-shift-remove="${s.id}">Remover</button></div>`:''}</div></div>`;
+  }
+  function scheduleList(admin=false){
+    const list=filteredShifts();const byDate={};list.forEach(s=>(byDate[s.date]||(byDate[s.date]=[])).push(s));
+    const dates=Object.keys(byDate).sort();
+    return `<div class="ux-schedule-list">${dates.map(date=>`<section class="ux-day-block"><div class="ux-day-heading"><div><strong>${weekdayLong(date)}</strong><span>${fmtDate(date)}${isToday(date)?' · HOJE':''}</span></div></div>${byDate[date].map(s=>shiftLine(s,admin)).join('')}</section>`).join('')||'<div class="card ux-empty">Nenhum plantão encontrado neste filtro.</div>'}</div>`;
+  }
+  function scheduleToolbar(admin=false){
+    if(!state.uxScheduleMode)state.uxScheduleMode=matchMedia('(max-width:700px)').matches?'list':'calendar';
+    if(!state.uxScheduleRange)state.uxScheduleRange='month';
+    return `<section class
