@@ -9,7 +9,7 @@
   ];
   const $=(s,r=document)=>r.querySelector(s);
   const $$=(s,r=document)=>[...r.querySelectorAll(s)];
-  let decorating=false,query='',selectedSector='';
+  let decorating=false,query='',selectedSector='',restoreTab='';
 
   function currentRoute(){return (location.hash||'#painel').slice(1);}
   function normalize(v){return String(v||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').trim();}
@@ -185,13 +185,25 @@
       note.textContent='Salva automaticamente ao sair do campo';actions.prepend(note);
     }
     save.textContent='Salvar agora';
+
+    if(restoreTab){
+      const tab=$('.tab[data-tab="'+restoreTab+'"]',modal);
+      restoreTab='';
+      if(tab&&!tab.classList.contains('active'))setTimeout(()=>tab.click(),0);
+    }
+
     let timer=null;
+    save.addEventListener('click',()=>clearTimeout(timer),true);
     const autosave=()=>{
       clearTimeout(timer);
       timer=setTimeout(()=>{
-        const currentSave=$('#p-save',$('#modal-card'));
-        if(currentSave&&!currentSave.disabled)currentSave.click();
-      },180);
+        const currentModal=$('#modal-card');
+        const currentSave=$('#p-save',currentModal);
+        if(currentSave&&!currentSave.disabled){
+          restoreTab=$('.tab.active',currentModal)?.dataset.tab||'resumo';
+          currentSave.click();
+        }
+      },220);
     };
     ['#p-case','#p-pending'].forEach(selector=>{
       const field=$(selector,modal);if(field)field.addEventListener('change',autosave);
