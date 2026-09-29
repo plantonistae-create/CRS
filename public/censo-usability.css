@@ -10,7 +10,7 @@
 .censo-sector-shortcut:hover,.censo-sector-shortcut:focus-visible{border-color:#86b8dc;box-shadow:0 5px 16px rgba(43,104,149,.09);outline:none}
 .censo-sector-shortcut:active{transform:translateY(1px)}
 .censo-sector-shortcut[aria-pressed="true"]{border-color:#4b98cb;background:#f2f9fe;box-shadow:0 0 0 2px rgba(75,152,203,.12)}
-.censo-sector-shortcut .censo-sector-name{display:block;font-size:13px;font-weight:850;line-height:1.25}
+.censo-sector-shortcut .censo-sector-name{display:block;font-size:14px;font-weight:850;line-height:1.25}
 .censo-sector-shortcut .censo-sector-count{display:block;font-size:28px;font-weight:900;line-height:1;margin-top:10px;color:#173d5d}
 .censo-searchbar{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center;border:1px solid #d8e5ef;border-radius:14px;background:#fff;padding:10px;box-shadow:0 4px 14px rgba(37,76,108,.04)}
 .censo-search-wrap{position:relative}
@@ -27,21 +27,24 @@
 #content .patient-row.censo-patient-hidden{display:none!important}
 #content .sector{scroll-margin-top:92px}
 #content .sector-head{margin-bottom:10px}
-#content .sector-title{font-size:17px;gap:8px;align-items:center}
+#content .sector-title{font-size:19px;gap:8px;align-items:center}
 #content .sector-title .count{min-width:28px;min-height:28px;display:inline-flex;align-items:center;justify-content:center}
-#content .patient-row.censo-patient-card{border:1px solid #dce7ef;border-radius:14px;background:#fff;padding:14px 15px;box-shadow:0 3px 11px rgba(36,76,106,.04);column-gap:16px;row-gap:10px}
+#content .patient-row.censo-patient-card{border:1px solid #dce7ef;border-radius:15px;background:#fff;padding:17px 18px;box-shadow:0 3px 11px rgba(36,76,106,.04);column-gap:18px;row-gap:14px;grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
 #content .patient-row.censo-patient-card:hover{border-color:#c4d9e8;box-shadow:0 6px 16px rgba(36,76,106,.07)}
-#content .censo-patient-card .patient-name{font-size:16px;font-weight:900;color:#173d5d}
-#content .censo-patient-card .patient-meta{margin-top:4px;font-size:12px}
-.censo-field-label{display:block;margin-bottom:4px;font-size:9.5px;font-weight:900;letter-spacing:.07em;text-transform:uppercase;color:#7b8e9c}
-#content .censo-patient-card .patient-case{color:#39556a;line-height:1.42}
-#content .censo-patient-card .patient-pending{line-height:1.42}
-#content .censo-patient-card .row-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-#content .censo-patient-card .row-actions .btn{min-height:42px}
-#content .censo-patient-card .row-actions [data-open-patient]{font-weight:850}
-#content .censo-patient-card .patient-priority-top{border-bottom:1px solid #edf2f6;padding-bottom:8px}
-#content .censo-patient-card .patient-drag-handle{min-height:34px}
-#content .censo-patient-card .patient-discharge-prominent{min-height:38px}
+#content .censo-patient-card .censo-patient-identity{grid-column:1/-1;order:1;padding-bottom:2px}
+#content .censo-patient-card .patient-name{font-size:18px;font-weight:900;color:#173d5d;line-height:1.25}
+#content .censo-patient-card .patient-meta{margin-top:5px;font-size:13px;line-height:1.4}
+.censo-sector-badge{display:inline-flex;align-items:center;margin-top:8px;padding:4px 8px;border:1px solid #cfe0eb;border-radius:999px;background:#f5f9fc;color:#456a84;font-size:11px;font-weight:850}
+.censo-field-label{display:block;margin-bottom:5px;font-size:10.5px;font-weight:900;letter-spacing:.07em;text-transform:uppercase;color:#718697}
+#content .censo-patient-card .patient-case{grid-column:1;order:2;color:#39556a;line-height:1.5;font-size:14px;padding:11px 12px;border:1px solid #edf2f6;border-radius:10px;background:#fbfdff;min-height:62px}
+#content .censo-patient-card .patient-pending{grid-column:2;order:2;line-height:1.5;font-size:14px;padding:11px 12px;min-height:62px}
+#content .censo-patient-card .row-actions{grid-column:1/-1;order:3;display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding-top:12px;border-top:1px solid #edf2f6}
+#content .censo-patient-card .row-actions .btn{min-height:46px;padding:10px 14px;font-size:13px}
+#content .censo-patient-card .row-actions [data-open-patient]{font-weight:900;min-width:132px}
+#content .censo-patient-card .patient-priority-top{grid-column:1/-1!important;order:4;margin:0!important;padding-top:11px!important;padding-bottom:0!important;border-top:1px dashed #dfe8ee;border-bottom:0!important}
+#content .censo-patient-card .patient-drag-handle{min-height:38px;font-size:12px}
+#content .censo-patient-card .patient-discharge-prominent{min-height:42px!important;background:#fff!important;border-color:#cbd9e3!important;color:#557084!important;font-size:12px!important;font-weight:850!important;padding:9px 12px!important}
+#content .censo-patient-card .patient-discharge-prominent:hover{background:#f8fbfd!important;border-color:#aebfcb!important;color:#3f6179!important}
 .censo-form-guide{margin:0 0 16px;display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
 .censo-form-step{border:1px solid #dce7ef;background:#f8fbfd;border-radius:10px;padding:9px 10px}
 .censo-form-step b{display:block;font-size:11px;color:#2e5878}
@@ -49,15 +52,19 @@
 .censo-autosave-note{display:inline-flex;align-items:center;gap:6px;font-size:11px;color:#4b7663;margin-right:auto}
 .censo-autosave-note:before{content:"✓";width:18px;height:18px;border-radius:999px;background:#edf8f3;color:#2d7a58;display:inline-flex;align-items:center;justify-content:center;font-weight:900}
 .censo-back{width:auto!important;min-width:86px!important;border:1px solid #d6e3ec!important;border-radius:9px!important;padding:8px 10px!important;font-size:12px!important;font-weight:800!important;color:#45677f!important;background:#fff!important}
-@media (min-width:721px){#content .patient-row.censo-patient-card[data-patient-priority-id]{grid-template-columns:minmax(220px,1.2fr) minmax(180px,1fr) minmax(180px,1fr) auto}}
+@media (min-width:721px){#content .patient-row.censo-patient-card[data-patient-priority-id]{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}}
 @media (max-width:1000px){.censo-overview{grid-template-columns:1fr}.censo-sector-shortcuts{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media (max-width:720px){
   .censo-simple-tools{margin-top:4px}.censo-overview-main{min-height:auto;padding:14px 15px}.censo-overview-main strong{font-size:30px}
   .censo-sector-shortcuts{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.censo-sector-shortcut{min-height:92px;padding:11px 12px}
   .censo-sector-shortcut .censo-sector-name{font-size:12px}.censo-sector-shortcut .censo-sector-count{font-size:24px;margin-top:8px}
   .censo-searchbar{grid-template-columns:1fr}.censo-searchbar .btn{width:100%}#censo-simple-search{font-size:16px}
-  #content .patient-row.censo-patient-card{padding:13px;grid-template-columns:1fr!important}
+  #content .patient-row.censo-patient-card{padding:15px;grid-template-columns:1fr!important}
+  #content .censo-patient-card .censo-patient-identity,#content .censo-patient-card .patient-case,#content .censo-patient-card .patient-pending,#content .censo-patient-card .row-actions,#content .censo-patient-card .patient-priority-top{grid-column:1!important}
+  #content .censo-patient-card .patient-name{font-size:18px}
+  #content .censo-patient-card .patient-meta{font-size:13px}
+  #content .censo-patient-card .patient-case,#content .censo-patient-card .patient-pending{font-size:14px;min-height:auto}
   #content .censo-patient-card .row-actions{display:grid;grid-template-columns:1fr 1fr;width:100%}
-  #content .censo-patient-card .row-actions .btn{width:100%;min-height:46px}
-  #content .censo-patient-card .patient-priority-top{grid-column:auto}.censo-form-guide{grid-template-columns:1fr}
+  #content .censo-patient-card .row-actions .btn{width:100%;min-height:48px;font-size:13px}
+  #content .censo-patient-card .patient-priority-top{grid-column:1!important}.censo-form-guide{grid-template-columns:1fr}
 }
