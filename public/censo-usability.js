@@ -82,20 +82,23 @@
   }
   function decoratePatients(){
     patientCards().forEach(row=>{
-      row.classList.add('censo-patient-card');
-      addFieldLabel(row.querySelector('.patient-case'),'Resumo');
-      addFieldLabel(row.querySelector('.patient-pending'),'Pendências');
-      const open=row.querySelector('[data-open-patient]');
-      if(open){
-        open.textContent='Abrir paciente';
-        open.classList.add('primary');
-        const name=row.querySelector('.patient-name')?.textContent?.trim()||'';
-        open.setAttribute('aria-label',('Abrir paciente '+name).trim());
+      if(row.dataset.censoDecorated!=='1'){
+        row.classList.add('censo-patient-card');
+        addFieldLabel(row.querySelector('.patient-case'),'Resumo');
+        addFieldLabel(row.querySelector('.patient-pending'),'Pendências');
+        const open=row.querySelector('[data-open-patient]');
+        if(open){
+          open.textContent='Abrir paciente';
+          open.classList.add('primary');
+          const name=row.querySelector('.patient-name')?.textContent?.trim()||'';
+          open.setAttribute('aria-label',('Abrir paciente '+name).trim());
+        }
+        const presc=row.querySelector('[data-edit-presc]');
+        if(presc){presc.textContent='Prescrição';presc.classList.remove('primary');}
+        row.dataset.censoDecorated='1';
       }
-      const presc=row.querySelector('[data-edit-presc]');
-      if(presc){presc.textContent='Prescrição';presc.classList.remove('primary');}
       const edit=row.querySelector('[data-edit-patient]');
-      if(edit)edit.textContent='Editar dados';
+      if(edit&&edit.textContent!=='Editar dados')edit.textContent='Editar dados';
     });
   }
   function updateTools(){
@@ -154,8 +157,7 @@
   }
   function enhanceManualForm(){
     const modal=$('#modal-card');
-    if(!modal||!$('#m-name',modal)||modal.dataset.censoGuide==='1')return;
-    modal.dataset.censoGuide='1';
+    if(!modal||!$('#m-name',modal)||$('.censo-form-guide',modal))return;
     const body=$('.modal-body',modal);if(!body)return;
     const guide=document.createElement('div');guide.className='censo-form-guide';
     guide.innerHTML=
@@ -170,8 +172,8 @@
   }
   function enhancePatientModal(){
     const modal=$('#modal-card'),save=$('#p-save',modal);
-    if(!modal||!save||modal.dataset.censoAutosave==='1')return;
-    modal.dataset.censoAutosave='1';
+    if(!modal||!save||save.dataset.censoAutosaveBound==='1')return;
+    save.dataset.censoAutosaveBound='1';
     const close=$('.modal-head .close',modal);
     if(close){
       close.textContent='← Voltar';close.classList.add('censo-back');
