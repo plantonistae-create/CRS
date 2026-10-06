@@ -1,6 +1,8 @@
     return {
       doctorId, name: doc?.name || "", crm: doc?.crm || "", doctorType: doc?.doctor_type || "folha",
       plannedShifts, plannedHours: planned, keptShifts, keptHours,
+      missedShifts: Math.max(0, plannedShifts - keptShifts),
+      workedShifts: keptShifts + extraShifts, workedHours: Math.round((keptHours + extra) * 100) / 100,
       missedHours: Math.max(0, Math.round((planned - keptHours) * 100) / 100),
       attendancePercent: attendancePct, minimumAttendancePercent: 75, minimumAttendanceHours: minimumHours,
       attestationHours: att, attestationPercent: attPct, attestationLimitHours: attLimit,
