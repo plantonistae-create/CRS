@@ -2,16 +2,32 @@ Ferramentas administrativas da escala</summary><div class="ux-admin-tools-body">
   };
 
 
+  const priorNewRequestFormV14=newRequestForm;
+  newRequestForm=function(){
+    const d=state.requestDraft;
+    if(!d||d.type!=='passagem')return priorNewRequestFormV14();
+    const s=(state.data?.shifts||[]).find(x=>x.id===d.shiftId);if(!s)return '';
+    const docs=doctors().filter(x=>x.id!==state.session.id);
+    return `<section class="card ux-guided-request"><button class="ux-back-link" type="button" data-ux-request-back>← Voltar</button><div class="eyebrow">Passar / trocar plantão</div><div class="ux-step-block"><div class="ux-step-number">1</div><div class="ux-step-content"><h3>Plantão selecionado</h3><div class="ux-review-box"><strong>${fmtDate(s.date)} · ${s.start}–${s.end}</strong><span>${esc(FN[s.function]||s.function)} · ${s.hours}h</span></div></div></div><form id="request-form"><input type="hidden" name="type" value="passagem"><input type="hidden" name="shiftId" value="${s.id}"><input type="hidden" name="eventDate" value="${s.date}"><input type="hidden" name="hours" value="${s.hours}"><input type="hidden" name="category" value="eventual"><div class="ux-step-block"><div class="ux-step-number">2</div><div class="ux-step-content"><h3>Por que você está passando este plantão?</h3><label class="field"><span>Motivo</span><select name="passReason" required><option value="">Selecione</option><option value="atestado">Atestado — não gera horas a pagar</option><option value="ausencia">Pagamento de horas posteriormente</option></select></label><label class="field"><span>Quem fará o plantão no seu lugar?</span><select name="targetDoctorId" required><option value="">Selecione o médico</option>${docs.map(x=>`<option value="${x.id}">${esc(x.name)}</option>`).join('')}</select></label><p class="muted">Não é necessário anexar o atestado. O ADM analisará a passagem e autorizará ou não.</p></div></div><div class="ux-step-block"><div class="ux-step-number">3</div><div class="ux-step-content"><h3>Revisar e enviar</h3><label class="field"><span>Observação (opcional)</span><textarea name="notes" placeholder="Somente se houver alguma informação adicional"></textarea></label><div class="ux-confirm-note">A escala oficial só muda depois da autorização do ADM.</div><div class="actions ux-form-actions"><button class="btn primary ux-big-action" type="submit">Solicitar passagem</button><button class="btn" type="button" data-action="cancel-request">Cancelar</button></div></div></div></form></section>`;
+  };
+
+  function exportMonthlyFrequencyReport(){
+    const rows=state.data?.summaries||[];
+    if(!rows.length)return toast('Não há dados de frequência para exportar.',true);
+    const cols=['Médico','CRM','Plantões previstos','Horas previstas','Plantões da própria escala mantidos','Horas da própria escala mantidas','Frequência (%)','Atestado (h)','Atestado (%)','Limite atestado 25% (h)','Saldo de atestado (h)','Horas a compensar','Plantões extras Coophavila','Horas extras Coophavila','Equivalentes de 12h'];
+    const csv=[cols,...rows.map(s=>[s.name,s.crm,s.plannedShifts,s.plannedHours,s.keptShifts,s.keptHours,s.attendancePercent,s.attestationHours,s.attestationPercent,s.attestationLimitHours,s.attestationRemainingHours,s.balanceHours,s.extraShifts,s.extraHours,s.extraEquivalent12h])].map(row=>row.map(v=>`"${String(v??'').replaceAll('"','""')}"`).join(';')).join('\n');
+    const blob=new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=`frequencia-coophavila-${state.month}.csv`;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);toast('Planilha mensal gerada.');
+  }
+
+
   submitRequest=async function(e){
-    e.preventDefault();const fd=new FormData(e.currentTarget);const type=String(fd.get('type')||'');const shift=(state.data?.shifts||[]).find(s=>s.id===fd.get('shiftId'));const camera=fd.get('cameraFile'),chosen=fd.get('file'),file=camera&&camera.size?camera:chosen;const start=String(fd.get('periodStart')||''),end=String(fd.get('periodEnd')||'');let notes=String(fd.get('notes')||'').trim();
-    if(type==='atestado'){
-      if(!file||!file.size)return toast('Adicione uma foto ou arquivo do atestado.',true);
-      if(start&&end&&end<start)return toast('A data final não pode ser anterior à data inicial.',true);
-      if(start&&end)notes=`Período do atestado: ${fmtDate(start)} a ${fmtDate(end)}.${notes?` ${notes}`:''}`;
-    }
+    e.preventDefault();const fd=new FormData(e.currentTarget);let type=String(fd.get('type')||'');const passReason=String(fd.get('passReason')||'');if(type==='passagem'){if(!['atestado','ausencia'].includes(passReason))return toast('Selecione o motivo da passagem.',true);type=passReason;}const shift=(state.data?.shifts||[]).find(s=>s.id===fd.get('shiftId'));const camera=fd.get('cameraFile'),chosen=fd.get('file'),file=camera&&camera.size?camera:chosen;const start=String(fd.get('periodStart')||''),end=String(fd.get('periodEnd')||'');let notes=String(fd.get('notes')||'').trim();
+    if(type==='atestado'&&start&&end&&end<start)return toast('A data final não pode ser anterior à data inicial.',true);
+    if(type==='atestado'&&start&&end)notes=`Período do atestado: ${fmtDate(start)} a ${fmtDate(end)}.${notes?` ${notes}`:''}`;
+    const targetDoctorId=String(fd.get('targetDoctorId')||'');if(['atestado','ausencia'].includes(type)&&!targetDoctorId)return toast('Selecione quem fará o plantão no seu lugar.',true);
     const summary=`${TYPE[type]||'Solicitação'}\n${shift?`${fmtDate(shift.date)} · ${shift.start}–${shift.end}`:''}`;
-    if(!confirm(`CONFIRMAR SOLICITAÇÃO?\n\n${summary}\n\nA escala oficial só será alterada após análise.`))return;
-    const body=Object.fromEntries(fd);delete body.file;delete body.cameraFile;delete body.periodStart;delete body.periodEnd;body.notes=notes;body.hours=Number(body.hours);if(!body.shiftId)delete body.shiftId;if(!body.targetDoctorId)delete body.targetDoctorId;
+    if(!confirm(`CONFIRMAR SOLICITAÇÃO?\n\n${summary}\n\nA escala oficial só será alterada após análise do ADM.`))return;
+    const body=Object.fromEntries(fd);delete body.file;delete body.cameraFile;delete body.periodStart;delete body.periodEnd;delete body.passReason;body.type=type;body.notes=notes;body.hours=Number(body.hours);if(!body.shiftId)delete body.shiftId;if(!body.targetDoctorId)delete body.targetDoctorId;
     const submit=e.currentTarget.querySelector('[type="submit"]');if(submit){submit.disabled=true;submit.textContent='Enviando…';}
     try{const d=await post('/api/requests',body);if(file&&file.size){const up=new FormData();up.append('file',file);await api(`/api/requests/${d.request.id}/attachment`,{method:'POST',body:up});}state.uxLastSubmission={type:d.request.type||type,protocol:d.request.protocol,status:d.request.status||'pending',submittedAt:d.request.submittedAt||new Date().toISOString()};resetRequestFlow();toast(`Solicitação enviada: ${d.request.protocol}`);await load();}catch(err){if(submit){submit.disabled=false;submit.textContent='Confirmar solicitação';}toast(err.message,true)}
   };
@@ -34,7 +50,7 @@ Ferramentas administrativas da escala</summary><div class="ux-admin-tools-body">
     const id=btn.dataset.decide;
     const request=(state.data?.requests||[]).find(r=>r.id===id);
     if(!request)return toast('Solicitação não encontrada. Atualize a tela e tente novamente.',true);
-    const approve=btn.dataset.approve!=='0'||btn.dataset.debt!==undefined;
+    const approve=btn.dataset.approve!=='0';
     if(!approve){
       const reason=prompt('Informe o motivo da não aprovação:','');
       if(!reason||!reason.trim())return toast('Informe o motivo para não aprovar.',true);
@@ -49,14 +65,10 @@ Ferramentas administrativas da escala</summary><div class="ux-admin-tools-body">
     const category=categorySelect?.value||request.category||'eventual';
     const canReplace=['troca','atestado','ausencia'].includes(request.type);
 
-    if(request.type==='troca'&&!targetDoctorId)return toast('Selecione o médico substituto antes de aprovar a troca.',true);
+    if(canReplace&&!targetDoctorId)return toast('Selecione quem fará o plantão antes de autorizar.',true);
     if(canReplace){
-      const impact=requestImpact({...request,targetDoctorId:targetDoctorId||null});
-      if(!targetDoctorId&&['atestado','ausencia'].includes(request.type)){
-        if(!confirm('ATENÇÃO: sem substituto definido, o plantão ficará descoberto após a aprovação.\n\nDeseja aprovar mesmo assim?'))return;
-      }else if(impact.cls==='bad'){
-        if(!confirm(`${impact.text}\n\nDeseja aprovar mesmo assim?`))return;
-      }
+      const impact=requestImpact({...request,targetDoctorId});
+      if(impact.cls==='bad'&&!confirm(`${impact.text}\n\nDeseja autorizar mesmo assim?`))return;
     }
 
     if(!confirm(`CONFIRMAR APROVAÇÃO?\n\n${TYPE[request.type]||'Solicitação'} · ${request.protocol||''}\n\nA escala poderá ser atualizada imediatamente.`))return;
@@ -64,16 +76,8 @@ Ferramentas administrativas da escala</summary><div class="ux-admin-tools-body">
     const body={approve:true,note};
     if(targetDoctorId)body.targetDoctorId=targetDoctorId;
     if(canReplace&&targetDoctorId)body.category=category;
-    if(btn.dataset.debt!==undefined){
-      body.generatesDebt=btn.dataset.debt==='1';
-      if(body.generatesDebt){
-        const raw=prompt('Quantas horas devem entrar no saldo a compensar?',String(request.hours||12));
-        if(raw===null)return;
-        const debtHours=Number(raw||request.hours||12);
-        if(!Number.isFinite(debtHours)||debtHours<=0)return toast('Informe uma quantidade válida de horas.',true);
-        body.debtHours=debtHours;
-      }
-    }
+    if(request.type==='ausencia')body.debtHours=Number(request.hours||0);
+
     try{await post(`/api/admin/requests/${id}/decide`,body);toast('Decisão registrada.');await load();}catch(e){toast(e.message,true)}
   };
 
