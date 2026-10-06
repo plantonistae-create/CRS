@@ -38,11 +38,18 @@
     return { ...pub, session: { role: "admin", id: "admin", name: "Administrador" }, doctorsList: doctors, templates, requests, notifications, summaries, audit };
   }
   doctorSummary(doctorId, month) {
-    const planned = Number(this.sql.exec("SELECT COALESCE(SUM(hours),0) h FROM shifts WHERE planned_doctor_id=? AND shift_date LIKE ?", doctorId, `${month}-%`).one().h || 0);
-    const plannedShifts = Number(this.sql.exec("SELECT COUNT(*) c FROM shifts WHERE planned_doctor_id=? AND shift_date LIKE ?", doctorId, `${month}-%`).one().c || 0);
+    const planned = Number(this.sql.exec("SELECT COALESCE(SUM(hours),0) h FROM shifts WHERE planned_doctor_id=? AND active=1 AND shift_date LIKE ?", doctorId, `${month}-%`).one().h || 0);
+    const plannedShifts = Number(this.sql.exec("SELECT COUNT(*) c FROM shifts WHERE planned_doctor_id=? AND active=1 AND shift_date LIKE ?", doctorId, `${month}-%`).one().c || 0);
+    const keptHours = Number(this.sql.exec("SELECT COALESCE(SUM(hours),0) h FROM shifts WHERE planned_doctor_id=? AND doctor_id=? AND active=1 AND shift_date LIKE ?", doctorId, doctorId, `${month}-%`).one().h || 0);
+    const keptShifts = Number(this.sql.exec("SELECT COUNT(*) c FROM shifts WHERE planned_doctor_id=? AND doctor_id=? AND active=1 AND shift_date LIKE ?", doctorId, doctorId, `${month}-%`).one().c || 0);
     const att = Number(this.sql.exec("SELECT COALESCE(SUM(hours),0) h FROM certificates WHERE doctor_id=? AND event_date LIKE ?", doctorId, `${month}-%`).one().h || 0);
     const debt = Number(this.sql.exec("SELECT COALESCE(SUM(hours),0) h FROM compensation WHERE doctor_id=? AND kind='debt' AND event_date LIKE ?", doctorId, `${month}-%`).one().h || 0);
     const paid = Number(this.sql.exec("SELECT COALESCE(SUM(hours),0) h FROM compensation WHERE doctor_id=? AND kind='paid' AND event_date LIKE ?", doctorId, `${month}-%`).one().h || 0);
     const extra = Number(this.sql.exec("SELECT COALESCE(SUM(hours),0) h FROM shifts WHERE doctor_id=? AND category<>'fixo' AND active=1 AND shift_date LIKE ?", doctorId, `${month}-%`).one().h || 0);
+    const extraShifts = Number(this.sql.exec("SELECT COUNT(*) c FROM shifts WHERE doctor_id=? AND category<>'fixo' AND active=1 AND shift_date LIKE ?", doctorId, `${month}-%`).one().c || 0);
     const doc = this.sql.exec("SELECT name,crm,doctor_type FROM doctors WHERE id=?", doctorId).toArray()[0];
-    const pct = planned > 0 ? Math.round((att / planned) * 1000) / 10 : 0;
+    const attPct = planned > 0 ? Math.round((att / planned) * 1000) / 10 : 0;
+    const attendancePct = planned > 0 ? Math.round((keptHours / planned) * 1000) / 10 : 100;
+    const attLimit = Math.round(planned * 0.25 * 100) / 100;
+    const minimumHours = Math.round(planned * 0.75 * 100) / 100;
+    const extraEquivalent = Math.round((extra / 12) * 100) / 100;
