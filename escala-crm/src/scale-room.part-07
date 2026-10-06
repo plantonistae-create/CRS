@@ -5,7 +5,7 @@
       workedShifts: keptShifts + extraShifts, workedHours: Math.round((keptHours + extra) * 100) / 100,
       missedHours: Math.max(0, Math.round((planned - keptHours) * 100) / 100),
       attendancePercent: attendancePct, minimumAttendancePercent: 75, minimumAttendanceHours: minimumHours,
-      attestationHours: att, attestationPercent: attPct, attestationLimitHours: attLimit,
+      attestationCount: attCount, attestationHours: att, attestationPercent: attPct, attestationLimitHours: attLimit,
       attestationRemainingHours: Math.max(0, Math.round((attLimit - att) * 100) / 100),
       attestationOverLimitHours: Math.max(0, Math.round((att - attLimit) * 100) / 100),
       attestationWithinLimit: att <= attLimit + 1e-9,
