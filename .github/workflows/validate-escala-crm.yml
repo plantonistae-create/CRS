@@ -1,0 +1,55 @@
+name: Validate Escala CRM
+
+on:
+  pull_request:
+    paths:
+      - 'escala-crm/**'
+      - '.github/workflows/validate-escala-crm.yml'
+      - '.github/workflows/deploy-escala-crm.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Assemble
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/escala-app
+          mkdir -p /tmp/escala-app/src /tmp/escala-app/public
+          cat escala-crm/src/scale-room.part-* > /tmp/escala-app/src/scale-room.js
+          cat escala-crm/public/escala-js.part-* > /tmp/escala-app/public/escala.js
+          cat escala-crm/public/ux-v14-js.part-* > /tmp/escala-app/public/ux-v14.js
+          cat escala-crm/public/ux-v14-css.part-* > /tmp/escala-app/public/ux-v14.css
+          cp escala-crm/src/scale-entry.js escala-crm/src/scale-file-store.js /tmp/escala-app/src/
+      - name: Syntax
+        run: |
+          set -euo pipefail
+          node --check /tmp/escala-app/src/scale-room.js
+          node --check /tmp/escala-app/src/scale-entry.js
+          node --check /tmp/escala-app/src/scale-file-store.js
+          node --check /tmp/escala-app/public/escala.js
+          node --check /tmp/escala-app/public/ux-v14.js
+      - name: V15 contracts
+        run: |
+          set -euo pipefail
+          grep -q 'EXTRA_DAILY_LIMIT = 96' /tmp/escala-app/src/scale-room.js
+          grep -q 'EXTRA_MONTHLY_EQUIVALENT_LIMIT = 14' /tmp/escala-app/src/scale-room.js
+          grep -q 'assertAttestationCapacity' /tmp/escala-app/src/scale-room.js
+          grep -q 'minimumAttendancePercent: 75' /tmp/escala-app/src/scale-room.js
+          grep -q 'attestationLimitHours' /tmp/escala-app/src/scale-room.js
+          grep -q 'extraEquivalent12h' /tmp/escala-app/src/scale-room.js
+          grep -q 'Passar / trocar plantão' /tmp/escala-app/public/ux-v14.js
+          grep -q 'Atestado — não gera horas a pagar' /tmp/escala-app/public/ux-v14.js
+          grep -q 'Gerar planilha do mês' /tmp/escala-app/public/ux-v14.js
+          grep -q '75% das horas previstas' /tmp/escala-app/public/ux-v14.js
+          grep -q 'Extras Coophavila' /tmp/escala-app/public/ux-v14.js
