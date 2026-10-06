@@ -1,5 +1,6 @@
 const $=(s,r=document)=>r.querySelector(s), $$=(s,r=document)=>[...r.querySelectorAll(s)];
 const state={month:new Date().toISOString().slice(0,7),session:null,data:null,route:'login',loginMode:'unit',ws:null,lastUnread:0,adminConfigured:null,unitAccessConfigured:null,requestDraft:null};
+let stateLoadPromise=null,stateLoadKey='',queuedStateLoad=false,wsReconnectTimer=null,wsRefreshTimer=null;
 const FN={emergencia_enfermaria:'Emergência + Enfermaria',fichas:'Fichas',enfermaria:'Enfermaria',cinderela:'Cinderela'};
 const CAT={fixo:'Fixo',eventual:'Eventual',pagamento:'Pagamento de horas'};
 const TYPE={atestado:'Passagem com atestado',ausencia:'Passagem · pagamento de horas posterior',troca:'Troca',pagamento:'Compensação de horas',extra:'Plantão extra'};
@@ -13,6 +14,54 @@ function toast(msg,error=false){const t=$('#toast');t.textContent=msg;t.classNam
 async function api(url,opt={}){const r=await fetch(url,{credentials:'same-origin',...opt,headers:{...(opt.body instanceof FormData?{}:{'content-type':'application/json'}),...(opt.headers||{})}});let d={};try{d=await r.json()}catch{}if(!r.ok)throw new Error(d.error||`Erro ${r.status}`);return d;}
 function post(url,body){return api(url,{method:'POST',body:JSON.stringify(body)});}
 async function detectSession(){try{const d=await api('/api/session');state.session=d.session;state.route=state.session.role==='admin'?'dashboard':state.session.role==='doctor'?'mine':'public';}catch{state.session=null;state.route='login';}}
-async function load(){try{if(!state.session){state.data=null;render();return;} state.data=await api(`/api/state?month=${state.month}`);render();notifyUnread();}catch(e){toast(e.message,true);if(/sessão|login/i.test(e.message)){state.session=null;state.route='login';state.data=null;render();}}}
+async function load(){
+  const key=`${state.session?.role||'none'}:${state.session?.id||'none'}:${state.month}`;
+  if(stateLoadPromise){
+    if(key!==stateLoadKey)queuedStateLoad=true;
+    return stateLoadPromise;
+  }
+  stateLoadKey=key;
+  stateLoadPromise=(async()=>{try{
+    if(!state.session){state.data=null;render();return;}
+    state.data=await api(`/api/state?month=${state.month}`);
+    render();notifyUnread();
+  }catch(e){
+    toast(e.message,true);
+    if(/sessão|login/i.test(e.message)){state.session=null;state.route='login';state.data=null;render();disconnectWs();}
+  }})();
+  try{return await stateLoadPromise;}
+  finally{
+    stateLoadPromise=null;
+    if(queuedStateLoad){queuedStateLoad=false;return load();}
+  }
+}
 function notifyUnread(){if(!state.session||!state.data?.notifications)return;const unread=state.data.notifications.filter(n=>!n.read_at).length;if(unread>state.lastUnread&&state.lastUnread!==0&&Notification?.permission==='granted'){new Notification('CRS Coophavila · Escala',{body:'Há uma nova atualização na escala/solicitações.'});}state.lastUnread=unread;}
-function connectWs(){try{state.ws?.close()}catch{}const proto=location.protocol==='https:'?'wss:':'ws:';const ws=new WebSocket(`${proto}//${location.host}/api/realtime?month=${state.month}`);state.ws=ws;ws.onmessage=e=>{try{const m=JSON.parse(e.data);if(m.type==='refresh')load();}catch{}};ws.onclose=()=>setTimeout(connectWs,2500);}
+function disconnectWs(){
+  if(wsReconnectTimer){clearTimeout(wsReconnectTimer);wsReconnectTimer=null;}
+  if(wsRefreshTimer){clearTimeout(wsRefreshTimer);wsRefreshTimer=null;}
+  const ws=state.ws;state.ws=null;
+  if(ws){ws.onclose=null;ws.onmessage=null;ws.onerror=null;try{ws.close()}catch{}}
+}
+function scheduleWsReconnect(){
+  if(!state.session||wsReconnectTimer)return;
+  wsReconnectTimer=setTimeout(()=>{wsReconnectTimer=null;connectWs();},2500);
+}
+function connectWs(force=false){
+  if(wsReconnectTimer){clearTimeout(wsReconnectTimer);wsReconnectTimer=null;}
+  if(!state.session){disconnectWs();return;}
+  if(!force&&state.ws&&(state.ws.readyState===WebSocket.CONNECTING||state.ws.readyState===WebSocket.OPEN))return;
+  const previous=state.ws;state.ws=null;
+  if(previous){previous.onclose=null;previous.onmessage=null;previous.onerror=null;try{previous.close()}catch{}}
+  const proto=location.protocol==='https:'?'wss:':'ws:';
+  const ws=new WebSocket(`${proto}//${location.host}/api/realtime?month=${state.month}`);
+  state.ws=ws;
+  ws.onmessage=e=>{try{
+    const m=JSON.parse(e.data);
+    if(m.type==='refresh'){
+      if(wsRefreshTimer)clearTimeout(wsRefreshTimer);
+      wsRefreshTimer=setTimeout(()=>{wsRefreshTimer=null;load();},120);
+    }
+  }catch{}};
+  ws.onerror=()=>{try{ws.close()}catch{}};
+  ws.onclose=()=>{if(state.ws===ws)state.ws=null;scheduleWsReconnect();};
+}
