@@ -106,7 +106,7 @@ jobs:
           grep -q 'Diurno' /tmp/ux-v12.js
           grep -q 'Noturno' /tmp/ux-v12.js
           grep -q 'Cinderela' /tmp/ux-v12.js
-          fetch_until "$BASE/ux-v14.js?v=15&ci=${GITHUB_SHA}" /tmp/ux-v14.js 'O que você precisa?'
+          fetch_until "$BASE/ux-v14.js?v=15&ci=${GITHUB_SHA}" /tmp/ux-v14.js 'Precisa passar um plantão?'
           grep -q 'TROCA EM ANÁLISE' /tmp/ux-v14.js
           grep -q 'Plantões descobertos' /tmp/ux-v14.js
           fetch_until "$BASE/ux-v14.css?v=15&ci=${GITHUB_SHA}" /tmp/ux-v14.css 'prefers-reduced-motion'
