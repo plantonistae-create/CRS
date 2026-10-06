@@ -42,7 +42,7 @@
     const plannedShifts = Number(this.sql.exec("SELECT COUNT(*) c FROM shifts WHERE planned_doctor_id=? AND active=1 AND shift_date LIKE ?", doctorId, `${month}-%`).one().c || 0);
     const keptHours = Number(this.sql.exec("SELECT COALESCE(SUM(hours),0) h FROM shifts WHERE planned_doctor_id=? AND doctor_id=? AND active=1 AND shift_date LIKE ?", doctorId, doctorId, `${month}-%`).one().h || 0);
     const keptShifts = Number(this.sql.exec("SELECT COUNT(*) c FROM shifts WHERE planned_doctor_id=? AND doctor_id=? AND active=1 AND shift_date LIKE ?", doctorId, doctorId, `${month}-%`).one().c || 0);
-    const att = Number(this.sql.exec("SELECT COALESCE(SUM(hours),0) h FROM certificates WHERE doctor_id=? AND event_date LIKE ?", doctorId, `${month}-%`).one().h || 0);
+    const att = Number(this.sql.exec("SELECT COALESCE(SUM(hours),0) h FROM certificates WHERE doctor_id=? AND event_date LIKE ?", doctorId, `${month}-%`).one().h || 0);\n    const attCount = Number(this.sql.exec("SELECT COUNT(*) c FROM certificates WHERE doctor_id=? AND event_date LIKE ?", doctorId, `${month}-%`).one().c || 0);
     const debt = Number(this.sql.exec("SELECT COALESCE(SUM(hours),0) h FROM compensation WHERE doctor_id=? AND kind='debt' AND event_date LIKE ?", doctorId, `${month}-%`).one().h || 0);
     const paid = Number(this.sql.exec("SELECT COALESCE(SUM(hours),0) h FROM compensation WHERE doctor_id=? AND kind='paid' AND event_date LIKE ?", doctorId, `${month}-%`).one().h || 0);
     const extra = Number(this.sql.exec("SELECT COALESCE(SUM(hours),0) h FROM shifts WHERE doctor_id=? AND category<>'fixo' AND active=1 AND shift_date LIKE ?", doctorId, `${month}-%`).one().h || 0);
