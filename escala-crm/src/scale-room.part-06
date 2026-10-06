@@ -33,10 +33,89 @@
     const notifications = this.sql.exec("SELECT * FROM notifications WHERE target_role='admin' ORDER BY created_at DESC LIMIT 200").toArray();
     const doctors = this.doctorRows().map(mapDoctor);
     const templates = this.templateRows().map((r) => ({ id: r.id, weekday: Number(r.weekday), start: r.start_time, end: r.end_time, hours: Number(r.hours), doctorId: r.doctor_id, function: r.function_code, category: r.category }));
-    const summaries = doctors.filter((d) => d.active).map((d) => this.doctorSummary(d.id, month));
+    const summaries = this.doctorSummaries(month, doctors, pub.shifts);
     const audit = this.sql.exec("SELECT * FROM audit_log ORDER BY occurred_at DESC,id DESC LIMIT 300").toArray().map((r) => ({ id: Number(r.id), actorRole: r.actor_role, actorId: r.actor_id, action: r.action, entityType: r.entity_type, entityId: r.entity_id, old: safeJson(r.old_json), current: safeJson(r.new_json), occurredAt: new Date(r.occurred_at).toISOString() }));
     return { ...pub, session: { role: "admin", id: "admin", name: "Administrador" }, doctorsList: doctors, templates, requests, notifications, summaries, audit };
   }
+  doctorSummaries(month, doctors, shifts) {
+    const activeDoctors = doctors.filter((d) => d.active);
+    const stats = new Map(activeDoctors.map((d) => [d.id, {
+      doctorId: d.id, name: d.name || "", crm: d.crm || "", doctorType: d.doctorType || "folha",
+      plannedShifts: 0, plannedHours: 0, keptShifts: 0, keptHours: 0,
+      attestationCount: 0, attestationHours: 0, debtHours: 0, paidHours: 0,
+      extraHours: 0, extraShifts: 0
+    }]));
+
+    for (const s of shifts || []) {
+      const hours = Number(s.hours || 0);
+      const planned = stats.get(s.plannedDoctorId);
+      if (planned) {
+        planned.plannedShifts += 1;
+        planned.plannedHours += hours;
+        if (s.doctorId === s.plannedDoctorId) {
+          planned.keptShifts += 1;
+          planned.keptHours += hours;
+        }
+      }
+      const current = stats.get(s.doctorId);
+      if (current && s.category !== "fixo") {
+        current.extraShifts += 1;
+        current.extraHours += hours;
+      }
+    }
+
+    const certificateRows = this.sql.exec(
+      "SELECT doctor_id,COUNT(*) c,COALESCE(SUM(hours),0) h FROM certificates WHERE event_date LIKE ? GROUP BY doctor_id",
+      `${month}-%`
+    ).toArray();
+    for (const row of certificateRows) {
+      const s = stats.get(row.doctor_id);
+      if (s) { s.attestationCount = Number(row.c || 0); s.attestationHours = Number(row.h || 0); }
+    }
+
+    const compensationRows = this.sql.exec(
+      "SELECT doctor_id,kind,COALESCE(SUM(hours),0) h FROM compensation WHERE event_date LIKE ? GROUP BY doctor_id,kind",
+      `${month}-%`
+    ).toArray();
+    for (const row of compensationRows) {
+      const s = stats.get(row.doctor_id);
+      if (!s) continue;
+      if (row.kind === "debt") s.debtHours = Number(row.h || 0);
+      if (row.kind === "paid") s.paidHours = Number(row.h || 0);
+    }
+
+    return activeDoctors.map((d) => {
+      const s = stats.get(d.id);
+      const planned = Math.round(s.plannedHours * 100) / 100;
+      const keptHours = Math.round(s.keptHours * 100) / 100;
+      const att = Math.round(s.attestationHours * 100) / 100;
+      const debt = Math.round(s.debtHours * 100) / 100;
+      const paid = Math.round(s.paidHours * 100) / 100;
+      const extra = Math.round(s.extraHours * 100) / 100;
+      const attPct = planned > 0 ? Math.round((att / planned) * 1000) / 10 : 0;
+      const attendancePct = planned > 0 ? Math.round((keptHours / planned) * 1000) / 10 : 100;
+      const attLimit = Math.round(planned * 0.25 * 100) / 100;
+      const minimumHours = Math.round(planned * 0.75 * 100) / 100;
+      const extraEquivalent = Math.round((extra / 12) * 100) / 100;
+      return {
+        doctorId: s.doctorId, name: s.name, crm: s.crm, doctorType: s.doctorType,
+        plannedShifts: s.plannedShifts, plannedHours: planned, keptShifts: s.keptShifts, keptHours,
+        missedShifts: Math.max(0, s.plannedShifts - s.keptShifts),
+        workedShifts: s.keptShifts + s.extraShifts, workedHours: Math.round((keptHours + extra) * 100) / 100,
+        missedHours: Math.max(0, Math.round((planned - keptHours) * 100) / 100),
+        attendancePercent: attendancePct, minimumAttendancePercent: 75, minimumAttendanceHours: minimumHours,
+        attestationCount: s.attestationCount, attestationHours: att, attestationPercent: attPct, attestationLimitHours: attLimit,
+        attestationRemainingHours: Math.max(0, Math.round((attLimit - att) * 100) / 100),
+        attestationOverLimitHours: Math.max(0, Math.round((att - attLimit) * 100) / 100),
+        attestationWithinLimit: att <= attLimit + 1e-9,
+        debtHours: debt, paidHours: paid, balanceHours: Math.max(0, Math.round((debt - paid) * 100) / 100),
+        extraHours: extra, extraShifts: s.extraShifts, extraEquivalent12h: extraEquivalent,
+        extraEquivalentLimit: EXTRA_MONTHLY_EQUIVALENT_LIMIT,
+        extraEquivalentRemaining: Math.max(0, Math.round((EXTRA_MONTHLY_EQUIVALENT_LIMIT - extraEquivalent) * 100) / 100)
+      };
+    });
+  }
+
   doctorSummary(doctorId, month) {
     const planned = Number(this.sql.exec("SELECT COALESCE(SUM(hours),0) h FROM shifts WHERE planned_doctor_id=? AND active=1 AND shift_date LIKE ?", doctorId, `${month}-%`).one().h || 0);
     const plannedShifts = Number(this.sql.exec("SELECT COUNT(*) c FROM shifts WHERE planned_doctor_id=? AND active=1 AND shift_date LIKE ?", doctorId, `${month}-%`).one().c || 0);
