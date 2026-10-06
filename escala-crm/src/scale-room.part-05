@@ -79,4 +79,24 @@
     const used = this.extraUsed(date, excludeShiftId);
     if (used + Number(hours) > EXTRA_DAILY_LIMIT + 1e-9) throw new ScaleError(`Limite diário excedido: ${used}h já lançadas de ${EXTRA_DAILY_LIMIT}h.`, 409);
   }
+  extraEquivalentUsed(doctorId, month, excludeShiftId = null) {
+    const row = excludeShiftId
+      ? this.sql.exec("SELECT COALESCE(SUM(hours),0) AS h FROM shifts WHERE doctor_id=? AND shift_date LIKE ? AND active=1 AND category<>'fixo' AND id<>?", doctorId, `${month}-%`, excludeShiftId).one()
+      : this.sql.exec("SELECT COALESCE(SUM(hours),0) AS h FROM shifts WHERE doctor_id=? AND shift_date LIKE ? AND active=1 AND category<>'fixo'", doctorId, `${month}-%`).one();
+    return Math.round((Number(row.h || 0) / 12) * 100) / 100;
+  }
+  assertDoctorExtraCapacity(doctorId, date, hours, excludeShiftId = null) {
+    const month = String(date).slice(0, 7);
+    const used = this.extraEquivalentUsed(doctorId, month, excludeShiftId);
+    const incoming = Number(hours) / 12;
+    if (used + incoming > EXTRA_MONTHLY_EQUIVALENT_LIMIT + 1e-9) throw new ScaleError(`Limite mensal de extras excedido: ${used} de ${EXTRA_MONTHLY_EQUIVALENT_LIMIT} equivalentes de 12h já utilizados. Plantões de 6h contam como 0,5.`, 409);
+  }
+  assertAttestationCapacity(doctorId, date, hours) {
+    const month = String(date).slice(0, 7);
+    const planned = Number(this.sql.exec("SELECT COALESCE(SUM(hours),0) h FROM shifts WHERE planned_doctor_id=? AND active=1 AND shift_date LIKE ?", doctorId, `${month}-%`).one().h || 0);
+    const used = Number(this.sql.exec("SELECT COALESCE(SUM(hours),0) h FROM certificates WHERE doctor_id=? AND event_date LIKE ?", doctorId, `${month}-%`).one().h || 0);
+    const limit = Math.round(planned * 0.25 * 100) / 100;
+    if (planned <= 0) throw new ScaleError("Não há carga horária prevista no mês para calcular o limite de atestado.", 409);
+    if (used + Number(hours) > limit + 1e-9) throw new ScaleError(`Limite de atestado excedido: a carga prevista é ${planned}h e o teto de 25% é ${limit}h. Já existem ${used}h aprovadas.`, 409);
+  }
   publicState(month) {

@@ -9,6 +9,7 @@ const VIEWER_SESSION_COOKIE = "copavila_scale_unit";
 const ADMIN_SESSION_COOKIE = "copavila_scale_admin";
 const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 const EXTRA_DAILY_LIMIT = 96;
+const EXTRA_MONTHLY_EQUIVALENT_LIMIT = 14;
 const FUNCTIONS = new Set(["emergencia_enfermaria", "fichas", "enfermaria", "cinderela"]);
 const CATEGORIES = new Set(["fixo", "eventual", "pagamento"]);
 const REQUEST_TYPES = new Set(["atestado", "ausencia", "troca", "pagamento", "extra"]);

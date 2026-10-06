@@ -18,6 +18,7 @@
     document.querySelectorAll('input[name="file"],input[name="cameraFile"]').forEach(input=>input.addEventListener('change',e=>{const name=e.target.files?.[0]?.name||'Nenhum arquivo selecionado';const out=document.querySelector('[data-ux-file-name]');if(out)out.textContent=name;}));
     document.querySelector('[data-ux-dismiss-success]')?.addEventListener('click',()=>{state.uxLastSubmission=null;render()});
     document.querySelectorAll('[data-request-target]').forEach(select=>select.addEventListener('change',()=>refreshAdminImpact(select)));
+    document.querySelector('[data-ux-export-frequency]')?.addEventListener('click',exportMonthlyFrequencyReport);
     if(state.session?.role==='doctor')document.querySelectorAll('[data-route="requests"]').forEach(b=>b.onclick=()=>{resetRequestFlow();state.route='requests';render()});
   };
 

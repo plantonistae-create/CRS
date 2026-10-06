@@ -1,4 +1,19 @@
-    return { doctorId, name: doc?.name || "", crm: doc?.crm || "", doctorType: doc?.doctor_type || "folha", plannedShifts, plannedHours: planned, attestationHours: att, attestationPercent: pct, attestationLimitHours: Math.round(planned * 0.25 * 100) / 100, debtHours: debt, paidHours: paid, balanceHours: Math.max(0, Math.round((debt - paid) * 100) / 100), extraHours: extra };
+    return {
+      doctorId, name: doc?.name || "", crm: doc?.crm || "", doctorType: doc?.doctor_type || "folha",
+      plannedShifts, plannedHours: planned, keptShifts, keptHours,
+      missedShifts: Math.max(0, plannedShifts - keptShifts),
+      workedShifts: keptShifts + extraShifts, workedHours: Math.round((keptHours + extra) * 100) / 100,
+      missedHours: Math.max(0, Math.round((planned - keptHours) * 100) / 100),
+      attendancePercent: attendancePct, minimumAttendancePercent: 75, minimumAttendanceHours: minimumHours,
+      attestationCount: attCount, attestationHours: att, attestationPercent: attPct, attestationLimitHours: attLimit,
+      attestationRemainingHours: Math.max(0, Math.round((attLimit - att) * 100) / 100),
+      attestationOverLimitHours: Math.max(0, Math.round((att - attLimit) * 100) / 100),
+      attestationWithinLimit: att <= attLimit + 1e-9,
+      debtHours: debt, paidHours: paid, balanceHours: Math.max(0, Math.round((debt - paid) * 100) / 100),
+      extraHours: extra, extraShifts, extraEquivalent12h: extraEquivalent,
+      extraEquivalentLimit: EXTRA_MONTHLY_EQUIVALENT_LIMIT,
+      extraEquivalentRemaining: Math.max(0, Math.round((EXTRA_MONTHLY_EQUIVALENT_LIMIT - extraEquivalent) * 100) / 100)
+    };
   }
 
   async adminCreateDoctor(request) {
